@@ -26,6 +26,9 @@ Openlit.init({
     disableBatch: true
   }); // Proxy endpoint
 
+// Note: evals are disabled for now as it's only compatible with OpenAI and Anthropic providers
+//Openlit.evals.All({provider: "openai"});
+
 // Post request handler
 export async function POST(req: Request) {
 
