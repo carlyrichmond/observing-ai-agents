@@ -1,11 +1,13 @@
+import Openlit from "openlit";
+
 import { ollama } from "ollama-ai-provider-v2";
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { NextResponse } from "next/server";
 
-import { weatherTool } from "../../ai/weather.tool";
-import { fcdoTool } from "../../ai/fcdo.tool";
-import { flightTool } from "../../ai/flights.tool";
-import { getSimilarMessages, persistMessage } from "../../util/elasticsearch";
+import { weatherTool } from "@/app/ai/weather.tool";
+import { fcdoTool } from "@/app/ai/fcdo.tool";
+import { flightTool } from "@/app/ai/flights.tool";
+import { getSimilarMessages, persistMessage } from "@/app/util/elasticsearch";
 
 // Allow streaming responses up to 30 seconds to address typically longer responses from LLMs
 export const maxDuration = 30;
@@ -16,15 +18,24 @@ const tools = {
   fcdo: fcdoTool,
 };
 
+Openlit.init({
+    applicationName: "ai-travel-agent",
+    environment: process.env.NODE_ENV || "development",
+    otlpEndpoint: process.env.PROXY_ENDPOINT,
+    traceContent: true,
+    disableBatch: true
+  }); // Proxy endpoint
+
 // Post request handler
 export async function POST(req: Request) {
+
   const { messages, id } = await req.json();
 
   // Store current message
   const lastMessageIndex = messages.length > 0 ? messages.length - 1 : 0;
   await persistMessage(messages[lastMessageIndex], id);
 
-  // Get chat history by chat id 
+  // Get chat history by chat id
   const previousMessages = await getSimilarMessages(messages[lastMessageIndex]);
   const allMessages = [...previousMessages, ...messages];
 

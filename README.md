@@ -1,12 +1,13 @@
-# Observing AI Agents
+# Travel Planner AI Agent
 
-Example Travel Planner Application Showing AI Agents Built Using AI SDK by Vercel and Elasticsearch, and observed using OpenTelemetry and OpenLit. It features in the talk *Observing AI Applications with OpenLIT and OpenTelemetry* given at NDC AI & Security Manchester 2025.
+Example Travel Planner Application Showing AI Agents Built Using AI SDK by Vercel and Elasticsearch. It features in the pieces [Building AI Agents with AI SDK and Elastic](https://www.elastic.co/search-labs/blog/ai-agents-ai-sdk-elasticsearch) and [What is Context Engineering?
+](https://www.elastic.co/search-labs/blog/context-engineering-overview) in [Elasticsearch Labs](https://www.elastic.co/search-labs/).
 
 ![Travel Planner Screenshot](./screenshots/travel-planner-full.png)
 
 ## Prerequisites
 
-To run this example, please ensure prerequisites listed in the repository [README](https://github.com/carlyrichmond/observing-ai-agents) are performed:
+To run this example, please ensure prerequisites listed in the repository [README](https://github.com/carlyrichmond/travel-planner-ai-agent) are performed:
 
 1. Please ensure you have the following tools installed:
 - Node.js
@@ -30,7 +31,7 @@ npm -v
 Pull the required code from the accompanying content repository and start the project:
 
 ```zsh
-git clone https://github.com/carlyrichmond/observing-ai-agents.git
+git clone https://github.com/carlyrichmond/travel-planner-ai-agent.git
 ```
 
 Populate the `.env` file with your OpenAI key, Weather API key, Elasticsearch endpoint and Elasticsearch API key as per the below example, also available in [.example-env](.example-env):
@@ -55,6 +56,6 @@ npx tsx ingestion.ts
 Initialize and start the application:
 
 ```zsh
-npm install # key dependencies: ai ollama-ai-provider-v2 zod @elastic/elasticsearch openlit
+npm install # key dependencies: ai @ai-sdk/openai zod @elastic/elasticsearch
 npm run dev
 ```

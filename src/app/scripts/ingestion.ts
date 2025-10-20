@@ -31,8 +31,6 @@ async function createIndex() {
     },
   });
 
-  await new Promise(r => setTimeout(r, 10000));
-
   console.log(`Index created`);
 }
 

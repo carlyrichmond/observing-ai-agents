@@ -11,10 +11,7 @@ const nextConfig: NextConfig = {
         search: ""
       }
     ]
-  },
-  allowedDevOrigins: [
-    "http://localhost:8123"
-  ]
+  }
 };
 
 export default nextConfig;
