@@ -55,6 +55,6 @@ npx tsx ingestion.ts
 Initialize and start the application:
 
 ```zsh
-npm install # key dependencies: ai @ai-sdk/openai zod @elastic/elasticsearch
+npm install # key dependencies: ai ollama-ai-provider-v2 zod @elastic/elasticsearch openlit
 npm run dev
 ```
