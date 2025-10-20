@@ -19,8 +19,8 @@ const tools = {
 };
 
 Openlit.init({
-    applicationName: "ai-travel-agent",
-    environment: process.env.NODE_ENV || "development",
+    //applicationName: "ai-travel-agent",
+    //environment: process.env.NODE_ENV || "development",
     otlpEndpoint: process.env.PROXY_ENDPOINT,
     traceContent: true,
     disableBatch: true
