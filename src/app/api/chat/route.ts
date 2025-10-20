@@ -27,7 +27,7 @@ Openlit.init({
   }); // Proxy endpoint
 
 // Note: evals are disabled for now as it's only compatible with OpenAI and Anthropic providers
-//Openlit.evals.All({provider: "openai"});
+//const detector = Openlit.evals.All({provider: "openai"});
 
 // Post request handler
 export async function POST(req: Request) {
@@ -44,14 +44,20 @@ export async function POST(req: Request) {
 
   try {
     const convertedMessages = convertToModelMessages(allMessages);
+
+    // TODO: can I invoke the check when I get the result back
+    /*const results = detector.measure({
+      prompt: messages[lastMessageIndex - 1],
+      contexts: convertedMessages,
+    });*/
+
     const result = streamText({
       model: ollama("qwen3:8b"),
-      system:
-        "You are a helpful assistant that returns travel itineraries based on location, the FCDO guidance from the specified tool, and the weather captured from the displayWeather tool." +
-        "Use the flight information from tool getFlights only to recommend possible flights in the itinerary." +
-        "If there are no flights available generate a sample itinerary and advise them to contact a travel agent." +
-        "Return an itinerary of sites to see and things to do based on the weather." +
-        "If the FCDO tool warns against travel DO NOT generate an itinerary.",
+      system:`You are a helpful assistant that returns travel itineraries based on location, the FCDO guidance from the specified tool, and the weather captured from the displayWeather tool.
+        Use the flight information from tool getFlights only to recommend possible flights in the itinerary.
+        If there are no flights available generate a sample itinerary and advise them to contact a travel agent.
+        Return an itinerary of sites to see and things to do based on the weather.
+        If the FCDO tool warns against travel DO NOT generate an itinerary.`,
       messages: convertedMessages,
       stopWhen: stepCountIs(2),
       tools,
