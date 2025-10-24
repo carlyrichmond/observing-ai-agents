@@ -5,6 +5,5 @@ ELASTIC_API_KEY=ARandomKey!
 
 # OTel and OpenLit config
 PROXY_ENDPOINT=http://localhost:8123
-OTEL_RESOURCE_ATTRIBUTES=service.name=ai-travel-agent,service.version=1,deployment.environment=development
 OTEL_EXPORTER_OTLP_ENDPOINT=https://my-elastic-otel-deployment:443
 OTEL_EXPORTER_OTLP_ENDPOINT_API_KEY=AnotherRandomKey!

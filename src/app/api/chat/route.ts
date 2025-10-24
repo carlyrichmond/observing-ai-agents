@@ -1,5 +1,6 @@
-import Openlit from "openlit";
+import openlit from "openlit";
 
+//import { openai } from "@ai-sdk/openai";
 import { ollama } from "ollama-ai-provider-v2";
 import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { NextResponse } from "next/server";
@@ -18,20 +19,18 @@ const tools = {
   fcdo: fcdoTool,
 };
 
-Openlit.init({
-    //applicationName: "ai-travel-agent",
-    //environment: process.env.NODE_ENV || "development",
+openlit.init({
+    applicationName: "ai-travel-agent",
+    environment: "development",
     otlpEndpoint: process.env.PROXY_ENDPOINT,
-    traceContent: true,
     disableBatch: true
   }); // Proxy endpoint
 
 // Note: evals are disabled for now as it's only compatible with OpenAI and Anthropic providers
-//const detector = Openlit.evals.All({provider: "openai"});
+const detector = openlit.evals.All({provider: "openai"});
 
 // Post request handler
 export async function POST(req: Request) {
-
   const { messages, id } = await req.json();
 
   // Store current message
@@ -47,13 +46,14 @@ export async function POST(req: Request) {
 
     // TODO: can I invoke the check when I get the result back
     /*const results = detector.measure({
-      prompt: messages[lastMessageIndex - 1],
-      contexts: convertedMessages,
+      prompt: messages[lastMessageIndex - 1].parts.join(""),
+      contexts: allMessages,
     });*/
 
     const result = streamText({
       model: ollama("qwen3:8b"),
-      system:`You are a helpful assistant that returns travel itineraries based on location, the FCDO guidance from the specified tool, and the weather captured from the displayWeather tool.
+      //model: openai("gpt-4o"),
+      system: `You are a helpful assistant that returns travel itineraries based on location, the FCDO guidance from the specified tool, and the weather captured from the displayWeather tool.
         Use the flight information from tool getFlights only to recommend possible flights in the itinerary.
         If there are no flights available generate a sample itinerary and advise them to contact a travel agent.
         Return an itinerary of sites to see and things to do based on the weather.
@@ -61,6 +61,7 @@ export async function POST(req: Request) {
       messages: convertedMessages,
       stopWhen: stepCountIs(2),
       tools,
+      experimental_telemetry: { isEnabled: true }
     });
 
     // Return data stream to allow the useChat hook to handle the results as they are streamed through for a better user experience

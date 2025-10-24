@@ -1,7 +1,7 @@
 import { Client } from "@elastic/elasticsearch";
 import { UIMessage } from "ai";
 
-export const flightIndex: string = "upcoming-flight-data";
+export const flightIndex: string = "upcoming-flight-data2";
 export const client: Client = new Client({
   node: process.env.ELASTIC_ENDPOINT,
   auth: {

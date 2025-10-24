@@ -1,4 +1,5 @@
 "use client";
+
 import { useChat } from "@ai-sdk/react";
 import { FormEvent, KeyboardEvent, useState } from "react";
 import Image from "next/image";
@@ -52,14 +53,17 @@ export default function Chat() {
                 <div className="tools__summary">
                   {m.parts.map((part, index) => {
                     if (part.type === "text") {
-                      { /* User or LLM generated content */}
+                      {
+                        /* User or LLM generated content */
+                      }
                       return (
                         <div
                           className="itinerary__div"
                           key={`${m.id}-${index}-text`}
                           dangerouslySetInnerHTML={{
                             __html: markdownConverter.makeHtml(part.text),
-                          }}></div>
+                          }}
+                        ></div>
                       );
                     } else {
                       if (part.type === "tool-weather") {
@@ -85,7 +89,11 @@ export default function Chat() {
                               </div>
                             );
                           case "output-error":
-                            return <div className="weather__tool" key={index}>No weather available!</div>;
+                            return (
+                              <div className="weather__tool" key={index}>
+                                No weather available!
+                              </div>
+                            );
                           default:
                             return null;
                         }
@@ -94,24 +102,24 @@ export default function Chat() {
                           case "input-available":
                             return (
                               <div className="fcdo__tool" key={index}>
-                                  <Image
-                                    src={pin}
-                                    width={80}
-                                    height={80}
-                                    alt="Placeholder FCDO Advice"
-                                  />
-                                  <p className="loading__fcdo__message">
-                                    Loading FCDO advice...
-                                  </p>
-                                </div>
+                                <Image
+                                  src={pin}
+                                  width={80}
+                                  height={80}
+                                  alt="Placeholder FCDO Advice"
+                                />
+                                <p className="loading__fcdo__message">
+                                  Loading FCDO advice...
+                                </p>
+                              </div>
                             );
                           case "output-available":
                             return (
                               <div className="fcdo__tool" key={index}>
-                                  <FCDOGuidance
-                                    {...(part.output as FCDOGuidanceProps)}
-                                  />
-                                </div>
+                                <FCDOGuidance
+                                  {...(part.output as FCDOGuidanceProps)}
+                                />
+                              </div>
                             );
                           case "output-error":
                             return <div key={index}>No FCDO guidance!</div>;
