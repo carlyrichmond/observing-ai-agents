@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Travel Planner",
-  description: "Travel Planner AI Agent Example",
+  title: "Observable Travel Planner",
+  description: "Observable Travel Planner AI Agent Example",
 };
 
 export default function RootLayout({
