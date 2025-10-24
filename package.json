@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.56.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/showdown": "^2.0.6",
