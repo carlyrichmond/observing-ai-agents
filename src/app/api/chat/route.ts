@@ -31,6 +31,12 @@ const evals = openlit.evals.All({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const guards = openlit.guard.All({
+  provider: "openai",
+  collectMetrics: true,
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 // Post request handler
 export async function POST(req: Request) {
   const { messages, id } = await req.json();
@@ -59,9 +65,7 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(2),
       tools,
       experimental_telemetry: { isEnabled: true },
-      onFinish: async ({
-        text, steps,
-      }) => {
+      onFinish: async ({ text, steps }) => {
         const toolResults = steps.flatMap((step) => {
           return step.content
             .filter((content) => content.type == "tool-result")
@@ -69,12 +73,15 @@ export async function POST(req: Request) {
               return JSON.stringify(c.output);
             });
         });
-        const results = await evals.measure({
+        const evalResults = await evals.measure({
           prompt: prompt,
           contexts: allMessages.concat(toolResults),
           text: text,
         });
-        console.log(`Evals results: ${results}`);
+        console.log(`Evals results: ${evalResults}`);
+
+        const guardrailResult = await guards.detect(text);
+        console.log(`Guardrail results: ${guardrailResult}`);
       },
     });
 
