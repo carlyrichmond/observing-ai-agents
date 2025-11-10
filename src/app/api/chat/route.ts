@@ -1,7 +1,8 @@
 import openlit from "openlit";
 
+//import { openai } from "@ai-sdk/openai";
 import { ollama } from "ollama-ai-provider-v2";
-import { streamText, stepCountIs, convertToModelMessages } from "ai";
+import { streamText, stepCountIs, convertToModelMessages, ModelMessage } from "ai";
 import { NextResponse } from "next/server";
 
 import { weatherTool } from "@/app/ai/weather.tool";
@@ -23,6 +24,17 @@ openlit.init({
   environment: "development",
   otlpEndpoint: process.env.PROXY_ENDPOINT,
   disableBatch: true,
+  pricing_json: {
+    embeddings: {},
+    images: {},
+    audio: {},
+    chat: {
+      "qwen3:8b": {
+        promptPrice: 0.0005,
+        completionPrice: 0.004,
+      },
+    },
+  },
 });
 
 const evals = openlit.evals.All({
@@ -35,33 +47,36 @@ const guards = openlit.guard.All({
   provider: "openai",
   collectMetrics: true,
   apiKey: process.env.OPENAI_API_KEY,
+  validTopics: ["travel", "culture"],
+  invalidTopics: ["finance", "software engineering"],
 });
 
 // Post request handler
 export async function POST(req: Request) {
   const { messages, id } = await req.json();
 
-  // Store current message
-  const lastMessageIndex = messages.length > 0 ? messages.length - 1 : 0;
-  await persistMessage(messages[lastMessageIndex], id);
-
   // Get chat history by chat id
-  const previousMessages = await getSimilarMessages(messages[lastMessageIndex]);
-  const allMessages = [...previousMessages, ...messages];
+  const lastMessageIndex = messages.length > 0 ? messages.length - 1 : 0;
+  const messageContent = messages[lastMessageIndex].parts.map((part: { text: string; }) => "text" in part && typeof part.text === "string" ? part.text : "").join(" ");
+
+  const previousMessages = await getSimilarMessages(messageContent);
 
   try {
-    const convertedMessages = convertToModelMessages(allMessages);
+    const convertedMessages = convertToModelMessages(messages);
+    const allMessages: ModelMessage[] = previousMessages.concat(convertedMessages);
+    
     const prompt = `You are a helpful assistant that returns travel itineraries based on location, the FCDO guidance from the specified tool, and the weather captured from the displayWeather tool.
         Use the flight information from tool getFlights only to recommend possible flights in the itinerary.
         If there are no flights available generate a sample itinerary and advise them to contact a travel agent.
         Return an itinerary of sites to see and things to do based on the weather.
+        Reuse and adapt the prior history if one exists in your memory.
         If the FCDO tool warns against travel DO NOT generate an itinerary.`;
 
     const result = streamText({
       model: ollama("qwen3:8b"),
       //model: openai("gpt-4o"),
       system: prompt,
-      messages: convertedMessages,
+      messages: allMessages,
       stopWhen: stepCountIs(2),
       tools,
       experimental_telemetry: { isEnabled: true },
@@ -73,9 +88,14 @@ export async function POST(req: Request) {
               return JSON.stringify(c.output);
             });
         });
+        console.log(toolResults);
+
+        const finalMessage = { role: 'system', content: text } as ModelMessage;
+        await persistMessage(finalMessage, id);
+
         const evalResults = await evals.measure({
           prompt: prompt,
-          contexts: allMessages.concat(toolResults),
+          contexts: allMessages.map(m => { return m.content.toString() }).concat(toolResults),
           text: text,
         });
         console.log(`Evals results: ${evalResults}`);
