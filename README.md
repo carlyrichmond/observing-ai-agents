@@ -31,7 +31,7 @@ npm -v
 Pull the required code from the accompanying content repository and start the project:
 
 ```zsh
-git clone https://github.com/carlyrichmond/travel-planner-ai-agent.git
+git clone https://github.com/carlyrichmond/observing-ai-agents.git
 ```
 
 Populate the `.env` file with your OpenAI key, Weather API key, Elasticsearch endpoint and Elasticsearch API key as per the below example, also available in [.example-env](.example-env):
@@ -56,6 +56,6 @@ npx tsx ingestion.ts
 Initialize and start the application:
 
 ```zsh
-npm install # key dependencies: ai @ai-sdk/openai zod @elastic/elasticsearch
+npm install # key dependencies: ai @ai-sdk/openai zod @elastic/elasticsearch openlit
 npm run dev
 ```
