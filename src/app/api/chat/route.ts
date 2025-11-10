@@ -23,18 +23,7 @@ openlit.init({
   applicationName: "ai-travel-agent",
   environment: "development",
   otlpEndpoint: process.env.PROXY_ENDPOINT,
-  disableBatch: true,
-  pricing_json: {
-    embeddings: {},
-    images: {},
-    audio: {},
-    chat: {
-      "qwen3:8b": {
-        promptPrice: 0.0005,
-        completionPrice: 0.004,
-      },
-    },
-  },
+  disableBatch: true
 });
 
 const evals = openlit.evals.All({
