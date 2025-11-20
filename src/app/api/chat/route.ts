@@ -1,6 +1,5 @@
 import openlit from "openlit";
 
-//import { openai } from "@ai-sdk/openai";
 import { ollama } from "ollama-ai-provider-v2";
 import { streamText, stepCountIs, convertToModelMessages, ModelMessage } from "ai";
 import { NextResponse } from "next/server";
@@ -54,12 +53,13 @@ export async function POST(req: Request) {
     const convertedMessages = convertToModelMessages(messages);
     const allMessages: ModelMessage[] = previousMessages.concat(convertedMessages);
     
-    const prompt = `You are a helpful assistant that returns travel itineraries based on location, the FCDO guidance from the specified tool, and the weather captured from the displayWeather tool.
-        Use the flight information from tool getFlights only to recommend possible flights in the itinerary.
-        If there are no flights available generate a sample itinerary and advise them to contact a travel agent.
-        Return an itinerary of sites to see and things to do based on the weather.
-        Reuse and adapt the prior history if one exists in your memory.
-        If the FCDO tool warns against travel DO NOT generate an itinerary.`;
+    const prompt = `You are a helpful assistant that returns travel itineraries based on location, 
+      the FCDO guidance from the specified tool, the available flights from the flight tool, 
+      and the weather captured from the displayWeather tool.
+      Use the flight information from tool getFlights only to recommend possible flights in the itinerary.
+      You must also return a day-by-day textual itinerary of sites to see and things to do based on the weather result.
+      Reuse and adapt past itineraries for the same destination if one exists in your memory.
+      If the FCDO tool warns against travel DO NOT generate recommendations of things to do, and explain why.`;
 
     const result = streamText({
       model: ollama("qwen3:8b"),
