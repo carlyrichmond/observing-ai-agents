@@ -1,7 +1,12 @@
 import openlit from "openlit";
 
 import { ollama } from "ollama-ai-provider-v2";
-import { streamText, stepCountIs, convertToModelMessages, ModelMessage } from "ai";
+import {
+  streamText,
+  stepCountIs,
+  convertToModelMessages,
+  ModelMessage,
+} from "ai";
 import { NextResponse } from "next/server";
 
 import { weatherTool } from "@/app/ai/weather.tool";
@@ -22,7 +27,7 @@ openlit.init({
   applicationName: "ai-travel-agent",
   environment: "development",
   otlpEndpoint: process.env.PROXY_ENDPOINT,
-  disableBatch: true
+  disableBatch: true,
 });
 
 const evals = openlit.evals.All({
@@ -45,14 +50,19 @@ export async function POST(req: Request) {
 
   // Get chat history by chat id
   const lastMessageIndex = messages.length > 0 ? messages.length - 1 : 0;
-  const messageContent = messages[lastMessageIndex].parts.map((part: { text: string; }) => "text" in part && typeof part.text === "string" ? part.text : "").join(" ");
+  const messageContent = messages[lastMessageIndex].parts
+    .map((part: { text: string }) =>
+      "text" in part && typeof part.text === "string" ? part.text : ""
+    )
+    .join(" ");
 
   const previousMessages = await getSimilarMessages(messageContent);
 
   try {
     const convertedMessages = convertToModelMessages(messages);
-    const allMessages: ModelMessage[] = previousMessages.concat(convertedMessages);
-    
+    const allMessages: ModelMessage[] =
+      previousMessages.concat(convertedMessages);
+
     const prompt = `You are a helpful assistant that returns travel itineraries based on location, 
       the FCDO guidance from the specified tool, the available flights from the flight tool, 
       and the weather captured from the displayWeather tool.
@@ -78,12 +88,16 @@ export async function POST(req: Request) {
         });
         console.log(toolResults);
 
-        const finalMessage = { role: 'system', content: text } as ModelMessage;
+        const finalMessage = { role: "system", content: text } as ModelMessage;
         await persistMessage(finalMessage, id);
 
         const evalResults = await evals.measure({
           prompt: prompt,
-          contexts: allMessages.map(m => { return m.content.toString() }).concat(toolResults),
+          contexts: allMessages
+            .map((m) => {
+              return m.content.toString();
+            })
+            .concat(toolResults),
           text: text,
         });
         console.log(`Evals results: ${evalResults}`);
