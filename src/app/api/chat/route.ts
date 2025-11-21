@@ -63,7 +63,6 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: ollama("qwen3:8b"),
-      //model: openai("gpt-4o"),
       system: prompt,
       messages: allMessages,
       stopWhen: stepCountIs(2),
