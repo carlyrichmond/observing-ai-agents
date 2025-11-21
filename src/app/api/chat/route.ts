@@ -36,14 +36,6 @@ const evals = openlit.evals.All({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const guards = openlit.guard.All({
-  provider: "openai",
-  collectMetrics: true,
-  apiKey: process.env.OPENAI_API_KEY,
-  validTopics: ["travel", "culture"],
-  invalidTopics: ["finance", "software engineering"],
-});
-
 // Post request handler
 export async function POST(req: Request) {
   const { messages, id } = await req.json();
@@ -101,9 +93,6 @@ export async function POST(req: Request) {
           text: text,
         });
         console.log(`Evals results: ${evalResults}`);
-
-        const guardrailResult = await guards.detect(text);
-        console.log(`Guardrail results: ${guardrailResult}`);
       },
     });
 
