@@ -10,9 +10,12 @@ export const client: Client = new Client({
 });
 
 const messageIndex: string = "chat-messages";
-export async function persistMessage(message: ModelMessage, id: string) {
-  try {
-    if (!(await client.indices.exists({ index: messageIndex }))) {
+
+/**
+ * Create the chat messages index if it does not already exist
+ */
+async function createMessagesIndexIfNotExists() {
+  if (!(await client.indices.exists({ index: messageIndex }))) {
       await client.indices.create({
         index: messageIndex,
         mappings: {
@@ -31,7 +34,16 @@ export async function persistMessage(message: ModelMessage, id: string) {
       });
       await new Promise((r) => setTimeout(r, 2000));
     }
+}
 
+/**
+ * Persist a chat message to Elasticsearch
+ * @param message: current message
+ * @param id: unique chat id 
+ */
+export async function persistMessage(message: ModelMessage, id: string) {
+  try {
+    await createMessagesIndexIfNotExists();
     await client.index({
       index: messageIndex,
       document: {
@@ -45,7 +57,16 @@ export async function persistMessage(message: ModelMessage, id: string) {
   }
 }
 
+/**
+ * Get similar chat messages from Elasticsearch based on semantic search
+ * @param content: current message content 
+ * @returns 
+ */
 export async function getSimilarMessages(content: string): Promise<(ModelMessage)[]> {
+  if (!(await client.indices.exists({ index: messageIndex }))) {
+    return [];
+  }
+
   try {
     const result = await client.search<{ message: ModelMessage }>({
       index: messageIndex,

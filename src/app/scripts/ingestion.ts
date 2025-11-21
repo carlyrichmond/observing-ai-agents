@@ -56,7 +56,7 @@ async function addFlightsToIndex() {
     "Warsaw",
   ];
 
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < 5000; i++) {
     const startDate = new Date();
     const endDate = new Date(2026, 1, 1);
     const departureDate = new Date(
@@ -83,5 +83,10 @@ async function addFlightsToIndex() {
   }
 }
 
-createIndex();
-addFlightsToIndex();
+async function main() {
+  createIndex();
+  await new Promise(resolve => setTimeout(resolve, 2000))
+  addFlightsToIndex();
+}
+
+main();
