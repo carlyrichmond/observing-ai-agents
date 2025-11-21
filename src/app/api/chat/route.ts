@@ -30,12 +30,6 @@ openlit.init({
   disableBatch: true,
 });
 
-const evals = openlit.evals.All({
-  provider: "openai",
-  collectMetrics: true,
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 const guards = openlit.guard.All({
   provider: "openai",
   collectMetrics: true,
@@ -78,29 +72,9 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(2),
       tools,
       experimental_telemetry: { isEnabled: true },
-      onFinish: async ({ text, steps }) => {
-        const toolResults = steps.flatMap((step) => {
-          return step.content
-            .filter((content) => content.type == "tool-result")
-            .map((c) => {
-              return JSON.stringify(c.output);
-            });
-        });
-        console.log(toolResults);
-
+      onFinish: async ({ text }) => {
         const finalMessage = { role: "system", content: text } as ModelMessage;
         await persistMessage(finalMessage, id);
-
-        const evalResults = await evals.measure({
-          prompt: prompt,
-          contexts: allMessages
-            .map((m) => {
-              return m.content.toString();
-            })
-            .concat(toolResults),
-          text: text,
-        });
-        console.log(`Evals results: ${evalResults}`);
 
         const guardrailResult = await guards.detect(text);
         console.log(`Guardrail results: ${guardrailResult}`);
