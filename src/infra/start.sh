@@ -19,7 +19,7 @@ if [ "$available_gb" -lt "$required" ]; then
   # shellcheck disable=SC2034
   read -r line
 fi
-if [ -z "${ES_LOCAL_LICENSE:-}" ] && [ "$today" -gt 1766158409 ]; then
+if [ -z "${ES_LOCAL_LICENSE:-}" ] && [ "$today" -gt 1766325766 ]; then
   echo "---------------------------------------------------------------------"
   echo "The one-month trial period has expired. You can continue using the"
   echo "Free and open Basic license or request to extend the trial for"
