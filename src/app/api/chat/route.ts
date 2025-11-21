@@ -30,20 +30,6 @@ openlit.init({
   disableBatch: true,
 });
 
-const evals = openlit.evals.All({
-  provider: "openai",
-  collectMetrics: true,
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const guards = openlit.guard.All({
-  provider: "openai",
-  collectMetrics: true,
-  apiKey: process.env.OPENAI_API_KEY,
-  validTopics: ["travel", "culture"],
-  invalidTopics: ["finance", "software engineering"],
-});
-
 // Post request handler
 export async function POST(req: Request) {
   const { messages, id } = await req.json();
@@ -78,33 +64,6 @@ export async function POST(req: Request) {
       stopWhen: stepCountIs(2),
       tools,
       experimental_telemetry: { isEnabled: true },
-      onFinish: async ({ text, steps }) => {
-        const toolResults = steps.flatMap((step) => {
-          return step.content
-            .filter((content) => content.type == "tool-result")
-            .map((c) => {
-              return JSON.stringify(c.output);
-            });
-        });
-        console.log(toolResults);
-
-        const finalMessage = { role: "system", content: text } as ModelMessage;
-        await persistMessage(finalMessage, id);
-
-        const evalResults = await evals.measure({
-          prompt: prompt,
-          contexts: allMessages
-            .map((m) => {
-              return m.content.toString();
-            })
-            .concat(toolResults),
-          text: text,
-        });
-        console.log(`Evals results: ${evalResults}`);
-
-        const guardrailResult = await guards.detect(text);
-        console.log(`Guardrail results: ${guardrailResult}`);
-      },
     });
 
     // Return data stream to allow the useChat hook to handle the results as they are streamed through for a better user experience
