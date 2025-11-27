@@ -9,7 +9,11 @@ export type RecommendedFlights = {
   outbound: Flight,
   inbound: Flight
 }
+
 export function priceWithCommas(price: number) {
+  if (!price) {
+    return '-';
+  }
   return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
