@@ -1,6 +1,6 @@
 import openlit from "openlit";
 
-import { ollama } from "ollama-ai-provider-v2";
+import { ollama } from "ai-sdk-ollama";
 import {
   streamText,
   stepCountIs,
@@ -22,6 +22,7 @@ const tools = {
   weather: weatherTool,
   fcdo: fcdoTool,
 };
+
 
 openlit.init({
   applicationName: "ai-travel-agent",
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
   const previousMessages = await getSimilarMessages(messageContent);
 
   try {
-    const convertedMessages = convertToModelMessages(messages);
+    const convertedMessages = await convertToModelMessages(messages);
     const allMessages: ModelMessage[] =
       previousMessages.concat(convertedMessages);
 
