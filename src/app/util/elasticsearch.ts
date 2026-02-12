@@ -9,7 +9,7 @@ export const client: Client = new Client({
   },
 });
 
-const messageIndex: string = "chat-messages";
+const messageIndex: string = "observable-chat-messages";
 
 /**
  * Create the chat messages index if it does not already exist
