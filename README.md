@@ -4,6 +4,20 @@ Example Travel Planner Application Showing how to observe AI agents using OpenLi
 
 ![Travel Planner Screenshot](./screenshots/travel-planner-full.png)
 
+The application comprises several elements including:
+
+1. A [Next.js](https://nextjs.org/) web application
+2. AI connectivity leveraging [AI SDK](https://ai-sdk.dev/) to call both the LLM and connected tools
+3. Local LLM hosting using [Ollama](https://ollama.com/)
+4. Data layers, including:
+   1.  Flight data in [Elasticsearch](https://www.elastic.co/elasticsearch)
+   2.  Weather data originating from [Weather API](https://www.weatherapi.com/)
+   3.  FCDO data captured via REST calls to the [GOV.UK API](https://content-api.publishing.service.gov.uk/reference.html#gov-uk-content-api)
+
+The full architecture is depicted below:
+
+![Travel Planner Agent Architecture](./screenshots/observable-travel-planner-architecture.png)
+
 ## Prerequisites
 
 To run this example, please ensure prerequisites listed in the repository [README](https://github.com/carlyrichmond/travel-planner-ai-agent) are performed:
