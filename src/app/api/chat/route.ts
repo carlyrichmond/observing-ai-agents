@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import { weatherTool } from "@/app/ai/weather.tool";
 import { fcdoTool } from "@/app/ai/fcdo.tool";
 import { flightTool } from "@/app/ai/flights.tool";
-import { getSimilarMessages } from "@/app/util/elasticsearch";
+import { getSimilarMessages, persistMessage } from "@/app/util/elasticsearch";
 
 // Allow streaming responses up to 30 seconds to address typically longer responses from LLMs
 export const maxDuration = 30;
@@ -70,7 +70,11 @@ export async function POST(req: Request) {
       messages: allMessages,
       stopWhen: stepCountIs(2),
       tools,
-      experimental_telemetry: { isEnabled: true }
+      experimental_telemetry: { isEnabled: true },
+      onFinish: async ({ text }) => {
+        const finalMessage = { role: "system", content: text } as ModelMessage;
+        await persistMessage(finalMessage, id);
+      }
     });
 
     // Return data stream to allow the useChat hook to handle the results as they are streamed through for a better user experience
