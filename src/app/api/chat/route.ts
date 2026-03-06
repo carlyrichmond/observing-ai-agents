@@ -1,5 +1,6 @@
 import openlit from "openlit";
 
+import { createAzure } from "@ai-sdk/azure";
 import { ollama } from "ai-sdk-ollama";
 import {
   streamText,
@@ -23,6 +24,10 @@ const tools = {
   fcdo: fcdoTool,
 };
 
+const azure = createAzure({
+  resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 openlit.init({
   applicationName: "ai-travel-agent",
@@ -35,12 +40,14 @@ const evals = openlit.evals.All({
   provider: "openai",
   collectMetrics: true,
   apiKey: process.env.OPENAI_API_KEY,
+  baseUrl: process.env.OPENAI_ENDPOINT
 });
 
 const guards = openlit.guard.All({
   provider: "openai",
   collectMetrics: true,
   apiKey: process.env.OPENAI_API_KEY,
+  baseUrl: process.env.OPENAI_ENDPOINT,
   validTopics: ["travel", "culture"],
   invalidTopics: ["finance", "software engineering"],
 });
@@ -73,7 +80,8 @@ export async function POST(req: Request) {
       If the FCDO tool warns against travel DO NOT generate recommendations of things to do, and explain why.`;
 
     const result = streamText({
-      model: ollama("qwen3:8b"),
+      //model: ollama("qwen3:8b"),
+      model: azure("gpt-4o"),
       system: prompt,
       messages: allMessages,
       stopWhen: stepCountIs(2),
