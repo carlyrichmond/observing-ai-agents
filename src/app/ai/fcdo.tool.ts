@@ -28,7 +28,7 @@ export const fcdoTool = tool({
       return { 
         country: country,
         status: alertStatus, 
-        url: `https://www.gov.uk${fcdoResponse.basePath}`
+        url: `https://www.gov.uk${fcdoResponse.base_path}`
       };
     } catch(e) {
       console.error(e);
