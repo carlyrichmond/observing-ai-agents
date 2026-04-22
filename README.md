@@ -71,6 +71,7 @@ Initialize and start the application:
 Ensure that the OTEL collector is running in a different terminal window:
 
 ```zsh
+cd src/infra
 docker compose up
 ```
 
