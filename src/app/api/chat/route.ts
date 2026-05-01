@@ -1,7 +1,6 @@
 import openlit from "openlit";
 
 import { createAzure } from "@ai-sdk/azure";
-import { ollama } from "ai-sdk-ollama";
 import {
   streamText,
   stepCountIs,
@@ -80,7 +79,6 @@ export async function POST(req: Request) {
       If the FCDO tool warns against travel DO NOT generate recommendations of things to do, and explain why.`;
 
     const result = streamText({
-      //model: ollama("qwen3:8b"),
       model: azure("gpt-4o"),
       system: prompt,
       messages: allMessages,
