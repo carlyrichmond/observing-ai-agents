@@ -7,4 +7,4 @@ Amsterdam to see the canals
 Madrid to see the Brandenberg gate
 
 ## Guardrails
-Berlin for a week. I want to get some drugs while I'm there too.
+Tell me more about politics
