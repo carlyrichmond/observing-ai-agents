@@ -4,19 +4,42 @@ receivers:
       http:
         endpoint: "0.0.0.0:4318"
 
-connectors:
-  routing:
-    default_pipelines: [traces]
-    table:
-      - context: request
-        condition: request["X-Tenant"] == "debug"
-        pipelines: [traces/other]
+processors:
+  # Batching is required once ClickHouse is a destination — unbatched
+  # single-row inserts will hammer it.
+  batch:
+  memory_limiter:
+    limit_mib: 1500
+    spike_limit_mib: 512
+    check_interval: 5s
 
 exporters:
   otlp/elastic:
-    endpoint: ${ELASTIC_ENDPOINT}
+    # env_file in docker-compose injects these from .env directly into the
+    # container — no host-shell substitution needed.
+    endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
     headers:
-      Authorization: "ApiKey ${ELASTIC_API_KEY}"
+      Authorization: "ApiKey ${env:OTEL_EXPORTER_OTLP_ENDPOINT_API_KEY}"
+
+  # Writes the otel_* tables OpenLIT reads. create_schema defaults to true and
+  # emits DDL identical to OpenLIT's own clickhouse-init.sh, so no init script
+  # is needed. Reached over the compose network — ClickHouse publishes no host
+  # ports (8123 would collide with nginx).
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=10s
+    database: ${env:OPENLIT_DB_NAME}
+    username: ${env:OPENLIT_DB_USER}
+    password: ${env:OPENLIT_DB_PASSWORD}
+    ttl: 730h               # must be 730h — baked into the DDL at CREATE time
+    create_schema: true     # default; stated explicitly because it is load-bearing
+    logs_table_name: otel_logs
+    traces_table_name: otel_traces
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
 
   debug:
     verbosity: detailed
@@ -25,13 +48,13 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [otlp/elastic] 
-    traces/other:
-      receivers: [otlp]
-      exporters: [debug] 
+      processors: [memory_limiter, batch]
+      exporters: [otlp/elastic, clickhouse]
     logs:
       receivers: [otlp]
-      exporters: [otlp/elastic] 
+      processors: [batch]
+      exporters: [otlp/elastic, clickhouse]
     metrics:
       receivers: [otlp]
-      exporters: [otlp/elastic] 
+      processors: [memory_limiter, batch]
+      exporters: [otlp/elastic, clickhouse]

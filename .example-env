@@ -14,3 +14,8 @@ ELASTIC_API_KEY=ARandomKey!
 PROXY_ENDPOINT=http://localhost:8123
 OTEL_EXPORTER_OTLP_ENDPOINT=https://my-elastic-otel-deployment:443
 OTEL_EXPORTER_OTLP_ENDPOINT_API_KEY=AnotherRandomKey!
+
+# OpenLIT server (required for LLM-as-a-judge evaluations)
+# See README for one-time UI setup steps after first `docker compose up`.
+OPENLIT_URL=http://localhost:3001
+OPENLIT_API_KEY=openlit-ARandomOpenLitKey!

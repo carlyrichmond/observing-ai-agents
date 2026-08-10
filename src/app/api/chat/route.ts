@@ -1,11 +1,15 @@
-import openlit from "openlit";
+import openlit, { Pipeline, SensitiveTopic, Moderation } from "openlit";
+import { OpenTelemetry } from "@ai-sdk/otel";
 
 import { createAzure } from "@ai-sdk/azure";
 import {
   streamText,
-  stepCountIs,
+  isStepCount,
   convertToModelMessages,
   ModelMessage,
+  registerTelemetry,
+  createUIMessageStreamResponse,
+  toUIMessageStream,
 } from "ai";
 import { NextResponse } from "next/server";
 
@@ -32,23 +36,24 @@ openlit.init({
   applicationName: "ai-travel-agent",
   environment: "development",
   otlpEndpoint: process.env.PROXY_ENDPOINT,
+  // OpenLIT server for LLM-as-a-judge evaluations (openlit.eval below).
+  // Must be the OpenLIT platform URL — NOT an LLM provider endpoint.
+  openlitUrl: process.env.OPENLIT_URL,
+  openlitApiKey: process.env.OPENLIT_API_KEY,
   disableBatch: true,
 });
 
-const evals = openlit.evals.All({
-  provider: "openai",
-  collectMetrics: true,
-  apiKey: process.env.OPENAI_API_KEY,
-  baseUrl: process.env.OPENAI_ENDPOINT
-});
+// Register @ai-sdk/otel after openlit.init so it picks up the tracer provider
+// OpenLit registers. Without this, AI SDK 7 emits no spans.
+registerTelemetry(new OpenTelemetry());
 
-const guards = openlit.guard.All({
-  provider: "openai",
-  collectMetrics: true,
-  apiKey: process.env.OPENAI_API_KEY,
-  baseUrl: process.env.OPENAI_ENDPOINT,
-  validTopics: ["travel", "culture"],
-  invalidTopics: ["finance", "software engineering"],
+// Guard pipeline: local, offline content safety checks — no external dependencies.
+// Moderation catches profanity/toxicity; SensitiveTopic catches violence, explicit content, etc.
+const guardPipeline = new Pipeline({
+  guards: [
+    new Moderation(),
+    new SensitiveTopic(),
+  ]
 });
 
 // Post request handler
@@ -70,8 +75,8 @@ export async function POST(req: Request) {
     const allMessages: ModelMessage[] =
       previousMessages.concat(convertedMessages);
 
-    const prompt = `You are a helpful assistant that returns travel itineraries based on location, 
-      the FCDO guidance from the specified tool, the available flights from the flight tool, 
+    const prompt = `You are a helpful assistant that returns travel itineraries based on location,
+      the FCDO guidance from the specified tool, the available flights from the flight tool,
       and the weather captured from the displayWeather tool.
       Use the flight information from tool getFlights only to recommend possible flights in the itinerary.
       You must also return a day-by-day textual itinerary of sites to see and things to do based on the weather result.
@@ -80,12 +85,15 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: azure("gpt-4o"),
-      system: prompt,
+      instructions: prompt,
       messages: allMessages,
-      stopWhen: stepCountIs(2),
+      // Required: the observable-chat-messages index stores assistant responses
+      // from earlier runs; AI SDK 7 rejects system-role messages by default.
+      allowSystemInMessages: true,
+      stopWhen: isStepCount(2),
       tools,
-      experimental_telemetry: { isEnabled: true },
-      onFinish: async ({ text, steps }) => {
+      telemetry: { functionId: "travel-planner" },
+      onEnd: async ({ text, steps }) => {
         const toolResults = steps.flatMap((step) => {
           return step.content
             .filter((content) => content.type == "tool-result")
@@ -95,27 +103,34 @@ export async function POST(req: Request) {
         });
         console.log(toolResults);
 
-        const finalMessage = { role: "system", content: text } as ModelMessage;
+        const finalMessage = { role: "assistant", content: text } as ModelMessage;
         await persistMessage(finalMessage, id);
 
-        const evalResults = await evals.measure({
-          prompt: prompt,
-          contexts: allMessages
-            .map((m) => {
-              return m.content.toString();
-            })
-            .concat(toolResults),
-          text: text,
-        });
-        console.log(`Evals results: ${evalResults}`);
+        // Evals: requires an OpenLIT server reachable at OPENLIT_URL.
+        // Skips gracefully when the server isn't configured (local dev without the full stack).
+        try {
+          // printResults defaults to true — the SDK writes a colour-coded
+          // PASSED/FAILED summary with per-type scores to stderr automatically.
+          await openlit.eval({
+            prompt: prompt,
+            response: text,
+            contexts: allMessages
+              .map((m) => m.content.toString())
+              .concat(toolResults)
+          });
+        } catch (e) {
+          console.warn(`Evals skipped: ${e instanceof Error ? e.message : e}`);
+        }
 
-        const guardrailResult = await guards.detect(text);
-        console.log(`Guardrail results: ${guardrailResult}`);
+        // Guards: local offline content safety pipeline — no external calls.
+        const guardResult = guardPipeline.evaluate(text, "postflight");
+        console.log(`Guardrail results: ${JSON.stringify(guardResult)}`);
       },
     });
 
     // Return data stream to allow the useChat hook to handle the results as they are streamed through for a better user experience
-    return result.toUIMessageStreamResponse();
+    return createUIMessageStreamResponse({ stream: toUIMessageStream(result) });
+    //return result.toUIMessageStreamResponse();
   } catch (e) {
     console.error(e);
     return new NextResponse(

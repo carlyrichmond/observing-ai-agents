@@ -5,18 +5,29 @@ services:
       context: ./otel-collector
     ports:
       - "4318:4318"
+    # env_file loads OTEL_EXPORTER_OTLP_ENDPOINT and _API_KEY into the container
+    # directly — the collector config reads them by their original names, so no
+    # host-shell substitution is required.
     env_file:
       - ../../.env
     environment:
-      - ELASTIC_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
-      - ELASTIC_API_KEY=${OTEL_EXPORTER_OTLP_ENDPOINT_API_KEY}
+      # Passed to the ClickHouse exporter — must match the clickhouse service.
+      - OPENLIT_DB_NAME=${OPENLIT_DB_NAME:-openlit}
+      - OPENLIT_DB_USER=${OPENLIT_DB_USER:-default}
+      - OPENLIT_DB_PASSWORD=${OPENLIT_DB_PASSWORD:-OPENLIT}
+    # Load-bearing: the ClickHouse exporter runs CREATE TABLE in start(). If
+    # ClickHouse is unreachable at startup the whole collector process exits —
+    # retry_on_failure only covers exports, not component initialisation.
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
     command: ["--config=/etc/otelcol/config.yaml", "--set=service.telemetry.logs.level=debug"]
 
   nginx:
     container_name: nginx-proxy
     build:
       context: ./nginx
-    image: nginx:latest
     ports:
       - "8123:8123"
     volumes:
@@ -24,6 +35,83 @@ services:
     depends_on:
       - otel-collector
 
+  # ClickHouse is required by OpenLIT for its Vault (judge LLM API key storage),
+  # provider/model catalog, and eval result persistence. All schema is created at
+  # runtime by OpenLIT's instrumentation.ts migrations — no init script needed.
+  # Host ports are intentionally NOT published: 8123 collides with nginx above,
+  # and 9000 collides with common local tooling. Everything reaches ClickHouse
+  # over the compose network (clickhouse:8123 / clickhouse:9000).
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.4.1
+    container_name: clickhouse
+    environment:
+      CLICKHOUSE_USER: ${OPENLIT_DB_USER:-default}
+      CLICKHOUSE_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      # CLICKHOUSE_DB (not CLICKHOUSE_DATABASE) is the env var the official image
+      # reads to create the database on first boot (entrypoint.sh line 168).
+      CLICKHOUSE_DB: ${OPENLIT_DB_NAME:-openlit}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --user=$${CLICKHOUSE_USER} --password=$${CLICKHOUSE_PASSWORD} --query='SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 100s
+    restart: always
+
+  # OpenLIT server — required for openlit.eval() in the AI route.
+  # In OpenLit 1.15 evals are server-side: the SDK POSTs {prompt, response, contexts}
+  # to /api/evaluation/offline and OpenLIT runs the LLM-as-a-judge call.
+  #
+  # Azure is not a supported judge provider in OpenLIT's run-evaluation.ts. The
+  # OPENAI_BASE_URL env var redirects the openai branch (the only one with no
+  # hardcoded baseURL) to the Azure v1 surface, which accepts bearer-token auth
+  # and implements POST /openai/v1/responses. Pick Provider=OpenAI (not Azure
+  # OpenAI) in the Evaluations → Configuration UI, with model name matching your
+  # Azure deployment name (typically gpt-4o).
+  #
+  # Port mapping: 3001 on the host to avoid clashing with `next dev` on 3000.
+  # DO NOT set the PORT env var — upstream's port interpolation has a known bug
+  # where both sides of the host:container mapping resolve from the host shell,
+  # and the container-side healthcheck is hardcoded to localhost:3000.
+  #
+  # The image bundles an otelcontribcol forked by opampsupervisor. Without a
+  # local config file mounted it starts with zero pipelines and binds nothing
+  # (verified: 4317/4318 ECONNREFUSED inside the container). Two Go stacktraces
+  # appear at boot then go silent — the process is inert. Traces go to
+  # otel-collector above, which fans out to both Elastic and ClickHouse.
+  #
+  # depends_on service_healthy is load-bearing: OpenLIT's ClickHouse schema
+  # migrations run once at boot from instrumentation.ts. If ClickHouse isn't
+  # ready, the provider/model dropdowns in the eval config UI stay empty.
+  openlit:
+    image: ghcr.io/openlit/openlit:latest
+    container_name: openlit
+    environment:
+      TELEMETRY_ENABLED: "true"
+      INIT_DB_HOST: clickhouse
+      INIT_DB_PORT: 8123
+      INIT_DB_DATABASE: ${OPENLIT_DB_NAME:-openlit}
+      INIT_DB_USERNAME: ${OPENLIT_DB_USER:-default}
+      INIT_DB_PASSWORD: ${OPENLIT_DB_PASSWORD:-OPENLIT}
+      SQLITE_DATABASE_URL: file:/app/client/data/data.db
+      OPENAI_BASE_URL: ${OPENAI_ENDPOINT}
+    ports:
+      - "3001:3000"
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - openlit-data:/app/client/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    restart: always
+
 volumes:
-  dev-elasticsearch:
-  dev-kibana:
+  clickhouse-data:
+  openlit-data:

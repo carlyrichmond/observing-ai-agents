@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 import { Flight } from '../model/flight.model';
 import { client, flightIndex } from '../util/elasticsearch';
@@ -19,8 +19,9 @@ export const flightTool = tool({
     origin: z.string().describe("The origin we are flying from").default("London"),
   }),
   outputSchema: z.object({
-    outbound: z.custom<Flight>().describe("List of outbound flights"),
-    inbound: z.custom<Flight>().describe("List of return flights")
+    outbound: z.unknown().optional().describe("Outbound flight"),
+    inbound: z.unknown().optional().describe("Return flight"),
+    message: z.string().optional().describe("Error message if flights are unavailable")
   }),
   execute: async function ({ destination, origin }) {
     try {

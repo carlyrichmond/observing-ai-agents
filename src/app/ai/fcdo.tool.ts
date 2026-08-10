@@ -1,5 +1,5 @@
 import { tool } from 'ai';
-import { z } from 'zod/v3';
+import { z } from 'zod';
 
 import { FCDOResponse } from '../model/fcdo.model';
 
