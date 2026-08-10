@@ -106,18 +106,16 @@ export async function POST(req: Request) {
         const finalMessage = { role: "assistant", content: text } as ModelMessage;
         await persistMessage(finalMessage, id);
 
-        // Evals: requires an OpenLIT server reachable at OPENLIT_URL.
-        // Skips gracefully when the server isn't configured (local dev without the full stack).
         try {
-          // printResults defaults to true — the SDK writes a colour-coded
-          // PASSED/FAILED summary with per-type scores to stderr automatically.
-          await openlit.eval({
+          // Evals: LLM-as-a-judge evaluations via OpenLit rule engine
+          const result = await openlit.eval({
             prompt: prompt,
             response: text,
             contexts: allMessages
               .map((m) => m.content.toString())
               .concat(toolResults)
           });
+          console.log(`Eval results: ${JSON.stringify(result)}`);
         } catch (e) {
           console.warn(`Evals skipped: ${e instanceof Error ? e.message : e}`);
         }
