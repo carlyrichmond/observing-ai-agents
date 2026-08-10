@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Turbopack's package-lock.json lookup walks up from the project root.
+  // Without this, it finds ~/.package-lock.json (outside the git repo) and warns.
+  turbopack: {
+    root: __dirname,
+  },
   // openlit uses OTel monkey-patching which requires native require();
   // bundling it would break instrumentation under Next 16's Turbopack build.
   // @opentelemetry/api must also be external so that openlit, @ai-sdk/otel, and
