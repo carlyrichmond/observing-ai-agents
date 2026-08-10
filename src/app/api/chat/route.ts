@@ -1,5 +1,6 @@
 import openlit, { Pipeline, SensitiveTopic, Moderation } from "openlit";
 import { OpenTelemetry } from "@ai-sdk/otel";
+import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 import { createAzure } from "@ai-sdk/azure";
 import {
@@ -47,6 +48,10 @@ openlit.init({
 // OpenLit registers. Without this, AI SDK 7 emits no spans.
 registerTelemetry(new OpenTelemetry());
 
+// Resolve the tracer after openlit.init(): before a provider is registered the
+// global API returns a NoopTracer that never upgrades itself later.
+const tracer = trace.getTracer("ai-travel-agent");
+
 // Guard pipeline: local, offline content safety checks — no external dependencies.
 // Moderation catches profanity/toxicity; SensitiveTopic catches violence, explicit content, etc.
 const guardPipeline = new Pipeline({
@@ -70,6 +75,27 @@ export async function POST(req: Request) {
 
   const previousMessages = await getSimilarMessages(messageContent);
 
+  // onEnd fires from the stream's flush callback in a new async context with no
+  // active span — nothing set here propagates there implicitly. Owning the parent
+  // span and closing over its Context is what correlates eval/guard telemetry with
+  // the LLM spans: @ai-sdk/otel parents ai.streamText off context.active() at the
+  // streamText() call site, and never makes any of its own spans active.
+  const chatSpan = tracer.startSpan("chat travel-planner", {
+    kind: SpanKind.SERVER,
+    attributes: { "gen_ai.conversation.id": id },
+  });
+  const chatContext = trace.setSpan(context.active(), chatSpan);
+  let chatSpanEnded = false;
+
+  // Ensure cleanup on request abort to prevent span leaks
+  req.signal.addEventListener("abort", () => {
+    if (!chatSpanEnded) {
+      chatSpan.setStatus({ code: SpanStatusCode.ERROR, message: "request aborted" });
+      chatSpan.end();
+      chatSpanEnded = true;
+    }
+  });
+
   try {
     const convertedMessages = await convertToModelMessages(messages);
     const allMessages: ModelMessage[] =
@@ -83,53 +109,137 @@ export async function POST(req: Request) {
       Reuse and adapt past itineraries for the same destination if one exists in your memory.
       If the FCDO tool warns against travel DO NOT generate recommendations of things to do, and explain why.`;
 
-    const result = streamText({
-      model: azure("gpt-4o"),
-      instructions: prompt,
-      messages: allMessages,
-      // Required: the observable-chat-messages index stores assistant responses
-      // from earlier runs; AI SDK 7 rejects system-role messages by default.
-      allowSystemInMessages: true,
-      stopWhen: isStepCount(2),
-      tools,
-      telemetry: { functionId: "travel-planner" },
-      onEnd: async ({ text, steps }) => {
-        const toolResults = steps.flatMap((step) => {
-          return step.content
-            .filter((content) => content.type == "tool-result")
-            .map((c) => {
-              return JSON.stringify(c.output);
+    // context.with ensures @ai-sdk/otel parents ai.streamText under chatSpan.
+    const result = context.with(chatContext, () =>
+      streamText({
+        model: azure("gpt-4o"),
+        instructions: prompt,
+        messages: allMessages,
+        // Required: the observable-chat-messages index stores assistant responses
+        // from earlier runs; AI SDK 7 rejects system-role messages by default.
+        allowSystemInMessages: true,
+        stopWhen: isStepCount(2),
+        tools,
+        telemetry: { functionId: "travel-planner" },
+        onEnd: async ({ text, steps, response }) => {
+          // A child of chatContext guarantees a recording span exists in onEnd.
+          // logScore and guardPipeline._emitOtel both silently emit nothing when
+          // no recording span is reachable.
+          const evalSpan = tracer.startSpan(
+            "evaluate travel-planner",
+            undefined,
+            chatContext
+          );
+
+          try {
+            const toolResults = steps.flatMap((step) => {
+              return step.content
+                .filter((content) => content.type == "tool-result")
+                .map((c) => {
+                  return JSON.stringify(c.output);
+                });
             });
-        });
-        console.log(toolResults);
+            console.log(toolResults);
 
-        const finalMessage = { role: "assistant", content: text } as ModelMessage;
-        await persistMessage(finalMessage, id);
+            const finalMessage = { role: "assistant", content: text } as ModelMessage;
+            await persistMessage(finalMessage, id);
 
-        try {
-          // Evals: LLM-as-a-judge evaluations via OpenLit rule engine
-          const result = await openlit.eval({
-            prompt: prompt,
-            response: text,
-            contexts: allMessages
-              .map((m) => m.content.toString())
-              .concat(toolResults)
-          });
-          console.log(`Eval results: ${JSON.stringify(result)}`);
-        } catch (e) {
-          console.warn(`Evals skipped: ${e instanceof Error ? e.message : e}`);
-        }
+            // Evals: LLM-as-a-judge via the OpenLIT server. openlit.eval() is a
+            // plain HTTP POST — it emits no OTel telemetry of its own. Each score
+            // is bridged to Elastic below via logScore, which emits an OTLP log
+            // record (→ nginx → collector → otlp/elastic) and a span event.
+            // Only request enabled evaluator types — the server hard-rejects disabled
+            // ones and fails the entire request.
+            const evalResult = await openlit.eval({
+              prompt: prompt,
+              response: text,
+              contexts: allMessages
+                .map((m) => m.content.toString())
+                .concat(toolResults),
+              evalTypes: ["hallucination", "bias", "toxicity", "relevance", "coherence", "faithfulness", "safety", "instruction_following", "completeness", "conciseness", "sensitivity"],
+            });
 
-        // Guards: local offline content safety pipeline — no external calls.
-        const guardResult = guardPipeline.evaluate(text, "postflight");
-        console.log(`Guardrail results: ${JSON.stringify(guardResult)}`);
-      },
-    });
+            if (!evalResult.success) {
+              evalSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: evalResult.error ?? "evaluation failed",
+              });
+              console.warn(`Evals failed: ${evalResult.error}`);
+            }
+
+            for (const evaluation of evalResult.evaluations) {
+              // Passing span: explicitly bypasses trace.getActiveSpan(), which
+              // is null here. The log record carries evalSpan's trace/span ids,
+              // correlating each score to the parent conversation in Elastic.
+              openlit.logScore({
+                span: evalSpan,
+                name: evaluation.type,
+                value: evaluation.score,
+                comment: evaluation.explanation,
+                idempotencyKey: `${evalSpan.spanContext().spanId}:${evaluation.type}`,
+                metadata: {
+                  // spec-defined: human-readable label for the score (classification
+                  // is more descriptive than the raw "yes"/"no" verdict).
+                  "gen_ai.evaluation.score.label": evaluation.classification,
+                  // spec-defined: correlates the score to the model response.
+                  ...(response?.id ? { "gen_ai.response.id": response.id } : {}),
+                  // OpenLIT extensions — verdict and classification have no
+                  // first-class semconv slot; metadata keys become OTel attribute
+                  // keys verbatim.
+                  "gen_ai.evaluation.verdict": evaluation.verdict,
+                  "gen_ai.evaluation.classification": evaluation.classification,
+                  // verdict "yes" means the issue was detected (a failure).
+                  "gen_ai.evaluation.passed":
+                    evaluation.verdict.toLowerCase() !== "yes",
+                },
+              });
+            }
+            console.log(`Eval results: ${JSON.stringify(evalResult)}`);
+
+            // Guards: Pipeline._emitOtel reads trace.getActiveSpan(), so evalSpan
+            // must be the active span for guard.evaluation events to be recorded.
+            const guardResult = context.with(
+              trace.setSpan(context.active(), evalSpan),
+              () => guardPipeline.evaluate(text, "postflight")
+            );
+            console.log(`Guardrail results: ${JSON.stringify(guardResult)}`);
+          } catch (e) {
+            evalSpan.recordException(e as Error);
+            evalSpan.setStatus({ code: SpanStatusCode.ERROR });
+            console.warn(
+              `Post-processing failed: ${e instanceof Error ? e.message : e}`
+            );
+          } finally {
+            // Span events are dropped the moment a span stops recording, so
+            // evalSpan must stay open until all logScore calls complete.
+            evalSpan.end();
+            if (!chatSpanEnded) {
+              chatSpan.end();
+              chatSpanEnded = true;
+            }
+          }
+        },
+        onAbort: () => {
+          if (!chatSpanEnded) {
+            chatSpan.setStatus({ code: SpanStatusCode.ERROR, message: "aborted" });
+            chatSpan.end();
+            chatSpanEnded = true;
+          }
+        },
+      })
+    );
 
     // Return data stream to allow the useChat hook to handle the results as they are streamed through for a better user experience
     return createUIMessageStreamResponse({ stream: toUIMessageStream(result) });
     //return result.toUIMessageStreamResponse();
   } catch (e) {
+    // streamText setup threw before onEnd could fire — end chatSpan here.
+    if (!chatSpanEnded) {
+      chatSpan.recordException(e as Error);
+      chatSpan.setStatus({ code: SpanStatusCode.ERROR });
+      chatSpan.end();
+      chatSpanEnded = true;
+    }
     console.error(e);
     return new NextResponse(
       "Unable to generate a plan. Please try again later!"

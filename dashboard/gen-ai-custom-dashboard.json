@@ -1,0 +1,717 @@
+{
+  "description": "",
+  "options": {
+    "auto_apply_filters": true,
+    "hide_panel_borders": false,
+    "hide_panel_titles": false,
+    "sync_colors": false,
+    "sync_cursor": true,
+    "sync_tooltips": false,
+    "use_margins": true
+  },
+  "tags": [
+    "dd5a07f8-eb90-41fa-92e1-7e0535e92881"
+  ],
+  "title": "GenAI Observability",
+  "filters": [],
+  "esql_approximation": false,
+  "query": {
+    "expression": "",
+    "language": "kql"
+  },
+  "panels": [
+    {
+      "grid": {
+        "y": 0,
+        "x": 0,
+        "w": 48,
+        "h": 5
+      },
+      "config": {
+        "content": "# GenAI Observability\n\nThis dashboard displays the usage of Large Language Models (LLM) and Vector Databases, tracking OpenTelemetry Traces and Metrics sent using [OpenLIT TypeScript SDK](https://docs.openlit.io/latest/sdk/overview) and the [AI SDK experimental telemetry flag](https://ai-sdk.dev/docs/ai-sdk-core/telemetry).\n\n",
+        "settings": {
+          "open_links_in_new_tab": true
+        }
+      },
+      "id": "d0b80831-2d0a-4da4-bd45-7dfb8816487f",
+      "type": "markdown"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 0,
+        "w": 10,
+        "h": 7
+      },
+      "config": {
+        "title": "Total Successful GenAI Requests",
+        "hide_title": true,
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "count",
+            "empty_as_null": true,
+            "label": "Total Successful GenAI Requests",
+            "format": {
+              "type": "number",
+              "decimals": 0,
+              "compact": false
+            },
+            "color": {
+              "type": "auto"
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        },
+        "query": {
+          "expression": "not (attributes.code.stacktrace : * )",
+          "language": "kql"
+        }
+      },
+      "id": "fc9f8451-fa92-46b2-a47a-94c45a7338aa",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 10,
+        "w": 11,
+        "h": 7
+      },
+      "config": {
+        "title": "Total Successful GenAI Requests",
+        "hide_title": true,
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "count",
+            "field": "attributes.db.system",
+            "empty_as_null": true,
+            "label": "Total Successful VectorDB Requests",
+            "format": {
+              "type": "number",
+              "decimals": 0,
+              "compact": false
+            },
+            "apply_color_to": "background",
+            "color": {
+              "type": "dynamic",
+              "range": "absolute",
+              "steps": [
+                {
+                  "lt": 34,
+                  "color": "#16C5C0"
+                },
+                {
+                  "gte": 34,
+                  "color": "#16C5C0"
+                }
+              ]
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        },
+        "query": {
+          "expression": "span.type : \"db\" and db.response.status_code : \"200\" or db.response.status_code : \"201\"",
+          "language": "kql"
+        }
+      },
+      "id": "4230457e-9ccc-4fcd-8ae6-5942d0e86360",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 21,
+        "w": 27,
+        "h": 7
+      },
+      "config": {
+        "type": "data_table",
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "sum",
+            "field": "attributes.gen_ai.usage.cache_read.input_tokens",
+            "empty_as_null": true,
+            "label": "Total Cache Read Input Tokens"
+          },
+          {
+            "operation": "sum",
+            "field": "attributes.gen_ai.usage.input_tokens",
+            "empty_as_null": true,
+            "label": "Total Input Tokens"
+          },
+          {
+            "operation": "sum",
+            "field": "attributes.gen_ai.usage.output_tokens",
+            "empty_as_null": true,
+            "label": "Total Output Tokens"
+          },
+          {
+            "operation": "average",
+            "field": "attributes.gen_ai.client.operation.duration",
+            "label": "Average Operation Duration"
+          },
+          {
+            "operation": "average",
+            "field": "attributes.gen_ai.client.operation.time_to_first_chunk",
+            "label": "Average Time to First Chunk"
+          }
+        ],
+        "rows": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.request.model"
+            ],
+            "label": "Model",
+            "limit": 5,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            }
+          }
+        ]
+      },
+      "id": "cd5ceef8-1b65-4388-adc7-451878ba7c60",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 12,
+        "x": 0,
+        "w": 28,
+        "h": 9
+      },
+      "config": {
+        "type": "xy",
+        "layers": [
+          {
+            "type": "line",
+            "data_source": {
+              "type": "data_view_reference",
+              "ref_id": "apm_static_data_view_id_default"
+            },
+            "sampling": 1,
+            "ignore_global_filters": false,
+            "x": {
+              "operation": "date_histogram",
+              "field": "@timestamp",
+              "suggested_interval": "auto",
+              "use_original_time_range": false,
+              "include_empty_rows": true,
+              "drop_partial_intervals": false
+            },
+            "y": [
+              {
+                "operation": "sum",
+                "field": "attributes.gen_ai.usage.input_tokens",
+                "empty_as_null": true,
+                "label": "Total Input Tokens",
+                "color": {
+                  "type": "auto"
+                }
+              },
+              {
+                "operation": "sum",
+                "field": "attributes.gen_ai.usage.output_tokens",
+                "empty_as_null": true,
+                "label": "Total Output Tokens",
+                "color": {
+                  "type": "auto"
+                }
+              }
+            ]
+          }
+        ],
+        "axis": {
+          "x": {
+            "title": {
+              "visible": true
+            },
+            "ticks": {
+              "visible": true
+            },
+            "grid": {
+              "visible": true
+            },
+            "domain": {
+              "type": "fit",
+              "rounding": false
+            },
+            "labels": {
+              "orientation": "horizontal"
+            }
+          },
+          "y": {
+            "title": {
+              "visible": true
+            },
+            "scale": "linear",
+            "ticks": {
+              "visible": true
+            },
+            "grid": {
+              "visible": true
+            },
+            "domain": {
+              "type": "full",
+              "rounding": true
+            },
+            "labels": {
+              "orientation": "horizontal"
+            }
+          }
+        },
+        "styling": {
+          "overlays": {
+            "partial_buckets": {
+              "visible": false
+            },
+            "current_time_marker": {
+              "visible": false
+            }
+          },
+          "interpolation": "linear",
+          "points": {
+            "visibility": "auto"
+          }
+        },
+        "legend": {
+          "placement": "outside",
+          "position": "right",
+          "layout": {
+            "type": "grid",
+            "truncate": {
+              "max_lines": 1
+            }
+          },
+          "visibility": "visible"
+        }
+      },
+      "id": "8c346e9f-56a5-490c-adc7-22e78c64f250",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 21,
+        "x": 0,
+        "w": 13,
+        "h": 10
+      },
+      "config": {
+        "title": "Proportion of Requests by Model",
+        "type": "pie",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "count",
+            "empty_as_null": true
+          }
+        ],
+        "group_by": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.request.model"
+            ],
+            "limit": 5,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            },
+            "color": {
+              "mode": "categorical",
+              "palette": "default",
+              "mapping": []
+            }
+          }
+        ],
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "legend": {
+          "visibility": "auto",
+          "nested": false
+        },
+        "styling": {
+          "labels": {
+            "visible": true,
+            "position": "outside"
+          },
+          "values": {
+            "visible": true,
+            "mode": "percentage"
+          }
+        }
+      },
+      "id": "e1bd4b84-5dec-4586-b989-5f632b768b17",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 21,
+        "x": 13,
+        "w": 13,
+        "h": 10
+      },
+      "config": {
+        "title": "Proportion of Requests by Provider",
+        "type": "pie",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "count",
+            "empty_as_null": true
+          }
+        ],
+        "group_by": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.provider.name"
+            ],
+            "limit": 5,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            },
+            "color": {
+              "mode": "categorical",
+              "palette": "default",
+              "mapping": []
+            }
+          }
+        ],
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "legend": {
+          "visibility": "auto",
+          "nested": false
+        },
+        "styling": {
+          "labels": {
+            "visible": true,
+            "position": "outside"
+          },
+          "values": {
+            "visible": true,
+            "mode": "percentage"
+          }
+        }
+      },
+      "id": "4314a4c4-c6aa-44eb-9f64-939435d7110e",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 21,
+        "x": 26,
+        "w": 22,
+        "h": 10
+      },
+      "config": {
+        "type": "xy",
+        "layers": [
+          {
+            "type": "bar_stacked",
+            "data_source": {
+              "type": "data_view_reference",
+              "ref_id": "apm_static_data_view_id_default"
+            },
+            "sampling": 1,
+            "ignore_global_filters": false,
+            "x": {
+              "operation": "date_histogram",
+              "field": "@timestamp",
+              "suggested_interval": "auto",
+              "use_original_time_range": false,
+              "include_empty_rows": true,
+              "drop_partial_intervals": false
+            },
+            "y": [
+              {
+                "operation": "average",
+                "field": "attributes.gen_ai.client.operation.duration",
+                "label": "Average of Response Completion Time (ms)"
+              },
+              {
+                "operation": "average",
+                "field": "attributes.gen_ai.client.operation.time_to_first_chunk",
+                "label": "Average of Time to First Chunk (ms)"
+              },
+              {
+                "operation": "average",
+                "field": "attributes.gen_ai.client.operation.time_per_output_chunk",
+                "label": "Average of Time Per Output Chunk"
+              }
+            ],
+            "breakdown_by": {
+              "operation": "terms",
+              "fields": [
+                "attributes.gen_ai.request.model"
+              ],
+              "limit": 10,
+              "other_bucket": {
+                "include_documents_without_field": false
+              },
+              "rank_by": {
+                "type": "metric",
+                "metric_index": 0,
+                "direction": "desc"
+              },
+              "aggregate_first": true,
+              "color": {
+                "mode": "categorical",
+                "palette": "default",
+                "mapping": []
+              }
+            }
+          }
+        ],
+        "axis": {
+          "x": {
+            "title": {
+              "visible": true
+            },
+            "ticks": {
+              "visible": true
+            },
+            "grid": {
+              "visible": true
+            },
+            "domain": {
+              "type": "fit",
+              "rounding": false
+            },
+            "labels": {
+              "orientation": "horizontal"
+            }
+          },
+          "y": {
+            "title": {
+              "visible": true
+            },
+            "scale": "linear",
+            "ticks": {
+              "visible": true
+            },
+            "grid": {
+              "visible": true
+            },
+            "domain": {
+              "type": "full",
+              "rounding": true
+            },
+            "labels": {
+              "orientation": "horizontal"
+            }
+          }
+        },
+        "styling": {
+          "overlays": {
+            "partial_buckets": {
+              "visible": false
+            },
+            "current_time_marker": {
+              "visible": false
+            }
+          },
+          "bars": {
+            "minimum_height": 1,
+            "data_labels": {
+              "visible": false
+            }
+          }
+        },
+        "legend": {
+          "placement": "outside",
+          "position": "right",
+          "layout": {
+            "type": "grid",
+            "truncate": {
+              "max_lines": 1
+            }
+          },
+          "visibility": "visible"
+        }
+      },
+      "id": "a4c42ac4-5572-409d-9d88-20a063871f97",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 12,
+        "x": 28,
+        "w": 10,
+        "h": 9
+      },
+      "config": {
+        "title": "Total Successful GenAI Requests (copy)",
+        "hide_title": true,
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "sum",
+            "field": "attributes.gen_ai.usage.input_tokens",
+            "empty_as_null": true,
+            "label": "Total Input Tokens",
+            "format": {
+              "type": "number",
+              "decimals": 0,
+              "compact": false
+            },
+            "background_chart": {
+              "type": "trend"
+            },
+            "apply_color_to": "background",
+            "color": {
+              "type": "distributed_palette",
+              "palette": "status"
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        }
+      },
+      "id": "c13adb41-e953-4f11-9b4d-1a9cac203605",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 12,
+        "x": 38,
+        "w": 10,
+        "h": 9
+      },
+      "config": {
+        "title": "Total Successful GenAI Requests (copy 1)",
+        "hide_title": true,
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "sum",
+            "field": "attributes.gen_ai.usage.output_tokens",
+            "empty_as_null": true,
+            "label": "Total Output Tokens",
+            "format": {
+              "type": "number",
+              "decimals": 0,
+              "compact": false
+            },
+            "background_chart": {
+              "type": "trend"
+            },
+            "apply_color_to": "background",
+            "color": {
+              "type": "distributed_palette",
+              "palette": "status"
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        }
+      },
+      "id": "dbd17a25-7729-4a06-bae9-cfa74c1bd48a",
+      "type": "vis"
+    }
+  ],
+  "pinned_panels": []
+}

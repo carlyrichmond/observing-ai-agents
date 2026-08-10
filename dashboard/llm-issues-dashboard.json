@@ -1,0 +1,832 @@
+{
+  "description": "",
+  "options": {
+    "auto_apply_filters": true,
+    "hide_panel_borders": false,
+    "hide_panel_titles": false,
+    "sync_colors": true,
+    "sync_cursor": true,
+    "sync_tooltips": true,
+    "use_margins": true
+  },
+  "tags": [
+    "dd5a07f8-eb90-41fa-92e1-7e0535e92881"
+  ],
+  "title": "LLM Issues",
+  "filters": [],
+  "esql_approximation": false,
+  "query": {
+    "expression": "",
+    "language": "kql"
+  },
+  "panels": [
+    {
+      "grid": {
+        "y": 0,
+        "x": 0,
+        "w": 48,
+        "h": 5
+      },
+      "config": {
+        "content": "# LLM Issues\n\nPotential issues detected in application usage using [OpenLIT TypeScript SDK](https://docs.openlit.io/latest/sdk/overview) and the [AI SDK experimental telemetry flag](https://ai-sdk.dev/docs/ai-sdk-core/telemetry). Specifically, hallucination issues identified by the evaluations and breaches of the guardrails are included here.",
+        "settings": {
+          "open_links_in_new_tab": true
+        }
+      },
+      "id": "fc67b4cf-f0f0-47e6-8565-221429e185c4",
+      "type": "markdown"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 0,
+        "w": 9,
+        "h": 10
+      },
+      "config": {
+        "title": "Proportion of sensitive requests",
+        "type": "pie",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "count",
+            "empty_as_null": true
+          }
+        ],
+        "group_by": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.evaluation.classification"
+            ],
+            "limit": 9,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            },
+            "color": {
+              "mode": "categorical",
+              "palette": "default",
+              "mapping": []
+            }
+          }
+        ],
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "logs-*"
+        },
+        "legend": {
+          "visibility": "auto",
+          "nested": false
+        },
+        "styling": {
+          "labels": {
+            "visible": true,
+            "position": "outside"
+          },
+          "values": {
+            "visible": true,
+            "mode": "percentage"
+          }
+        }
+      },
+      "id": "5609da63-3b35-4158-8e4b-897a0b51de37",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 9,
+        "w": 9,
+        "h": 10
+      },
+      "config": {
+        "title": "Proportion of hallucinations",
+        "type": "pie",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "count",
+            "empty_as_null": true,
+            "filter": {
+              "expression": "attributes.gen_ai.evaluation.name : \"Hallucination evaluation context\" ",
+              "language": "kql"
+            }
+          }
+        ],
+        "group_by": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.evaluation.verdict"
+            ],
+            "limit": 9,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            },
+            "color": {
+              "mode": "categorical",
+              "palette": "default",
+              "mapping": []
+            }
+          }
+        ],
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "logs-*"
+        },
+        "legend": {
+          "visibility": "auto",
+          "nested": false
+        },
+        "styling": {
+          "labels": {
+            "visible": true,
+            "position": "outside"
+          },
+          "values": {
+            "visible": true,
+            "mode": "percentage"
+          }
+        }
+      },
+      "id": "2894c3ce-531d-4498-a740-0aca28d81d54",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 18,
+        "w": 9,
+        "h": 10
+      },
+      "config": {
+        "title": "Detected issues",
+        "type": "pie",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "count",
+            "empty_as_null": true,
+            "label": "Number of threatening requests"
+          }
+        ],
+        "group_by": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.evaluation.classification"
+            ],
+            "limit": 9,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            },
+            "color": {
+              "mode": "gradient",
+              "palette": "default",
+              "mapping": [],
+              "sort": "desc",
+              "gradient": [
+                {
+                  "type": "from_palette",
+                  "palette": "default",
+                  "index": 0
+                },
+                {
+                  "type": "from_palette",
+                  "palette": "default",
+                  "index": 1
+                }
+              ]
+            }
+          }
+        ],
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "logs-*"
+        },
+        "legend": {
+          "visibility": "auto",
+          "nested": false
+        },
+        "styling": {
+          "labels": {
+            "visible": true,
+            "position": "outside"
+          },
+          "values": {
+            "visible": true,
+            "mode": "percentage"
+          }
+        }
+      },
+      "id": "607af941-0a34-4368-845e-e00c719fad2c",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 27,
+        "w": 7,
+        "h": 10
+      },
+      "config": {
+        "title": "",
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "logs-*"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "count",
+            "empty_as_null": true,
+            "label": "Number of threatening requests",
+            "filter": {
+              "expression": "attributes.gen_ai.evaluation.name : \"Safety evaluation context\" and attributes.gen_ai.evaluation.verdict : \"yes\" ",
+              "language": "kql"
+            },
+            "apply_color_to": "background",
+            "color": {
+              "type": "dynamic",
+              "range": "absolute",
+              "steps": [
+                {
+                  "lt": 2,
+                  "color": "#24c292"
+                },
+                {
+                  "gte": 2,
+                  "lt": 3,
+                  "color": "#fcd883"
+                },
+                {
+                  "gte": 3,
+                  "color": "#f6726a"
+                }
+              ]
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        },
+        "query": {
+          "expression": "evals.classification : \"threat\"  or openlit.guard.classification : \"violence\" ",
+          "language": "kql"
+        }
+      },
+      "id": "5cdaa318-0441-47cb-b566-24020d459d31",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 34,
+        "w": 7,
+        "h": 10
+      },
+      "config": {
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "count",
+            "empty_as_null": true,
+            "label": "Number of inaccurate results",
+            "color": {
+              "type": "dynamic",
+              "range": "absolute",
+              "steps": [
+                {
+                  "lt": 2,
+                  "color": "#24c292"
+                },
+                {
+                  "gte": 2,
+                  "lt": 3,
+                  "color": "#fcd883"
+                },
+                {
+                  "gte": 3,
+                  "color": "#f6726a"
+                }
+              ]
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        },
+        "query": {
+          "expression": "attributes.evals.classification : \"factual_inaccuracy\" ",
+          "language": "kql"
+        }
+      },
+      "id": "1f9bd330-5f24-4ed8-bb5f-be1b8663d1f6",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 5,
+        "x": 41,
+        "w": 7,
+        "h": 10
+      },
+      "config": {
+        "title": "",
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "type": "metric",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "type": "primary",
+            "operation": "count",
+            "empty_as_null": true,
+            "label": "Hallucination count",
+            "color": {
+              "type": "dynamic",
+              "range": "absolute",
+              "steps": [
+                {
+                  "lt": 2,
+                  "color": "#24c292"
+                },
+                {
+                  "gte": 2,
+                  "lt": 3,
+                  "color": "#fcd883"
+                },
+                {
+                  "gte": 3,
+                  "color": "#f6726a"
+                }
+              ]
+            }
+          }
+        ],
+        "styling": {
+          "density": "compact",
+          "primary": {
+            "position": "bottom",
+            "labels": {
+              "alignment": "left"
+            },
+            "value": {
+              "sizing": "auto",
+              "alignment": "right"
+            }
+          }
+        },
+        "query": {
+          "expression": "evals.verdict :\"yes\" ",
+          "language": "kql"
+        }
+      },
+      "id": "7e591e2a-8a32-4c74-91e0-076250b01ac4",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 15,
+        "x": 0,
+        "w": 24,
+        "h": 15
+      },
+      "config": {
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "type": "heatmap",
+        "legend": {
+          "visibility": "visible",
+          "position": "right"
+        },
+        "axis": {
+          "x": {
+            "labels": {
+              "visible": true
+            },
+            "title": {
+              "visible": false
+            },
+            "scale": "ordinal"
+          }
+        },
+        "styling": {
+          "cells": {
+            "labels": {
+              "visible": false
+            }
+          }
+        },
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "metrics-*"
+        },
+        "metric": {
+          "operation": "count",
+          "empty_as_null": true,
+          "filter": {
+            "expression": "attributes.guard.action : \"warn\" ",
+            "language": "kql"
+          },
+          "color": {
+            "type": "distributed_palette",
+            "palette": "complementary"
+          }
+        },
+        "x": {
+          "operation": "terms",
+          "fields": [
+            "attributes.guard.name"
+          ],
+          "limit": 9,
+          "other_bucket": {
+            "include_documents_without_field": false
+          },
+          "rank_by": {
+            "type": "metric",
+            "metric_index": 0,
+            "direction": "desc"
+          }
+        }
+      },
+      "id": "cf12eae2-de26-49fa-9e33-d3bf53741fdb",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 15,
+        "x": 24,
+        "w": 24,
+        "h": 15
+      },
+      "config": {
+        "type": "xy",
+        "layers": [
+          {
+            "type": "bar_stacked",
+            "data_source": {
+              "type": "data_view_reference",
+              "ref_id": "logs-*"
+            },
+            "sampling": 1,
+            "ignore_global_filters": false,
+            "x": {
+              "operation": "date_histogram",
+              "field": "@timestamp",
+              "suggested_interval": "auto",
+              "use_original_time_range": false,
+              "include_empty_rows": true,
+              "drop_partial_intervals": false
+            },
+            "y": [
+              {
+                "operation": "average",
+                "field": "attributes.gen_ai.evaluation.score.value",
+                "label": "Average Evaluation Scores",
+                "color": {
+                  "type": "auto"
+                }
+              }
+            ]
+          }
+        ],
+        "axis": {
+          "x": {
+            "title": {
+              "visible": true
+            },
+            "ticks": {
+              "visible": true
+            },
+            "grid": {
+              "visible": true
+            },
+            "domain": {
+              "type": "fit",
+              "rounding": false
+            },
+            "labels": {
+              "orientation": "horizontal"
+            }
+          },
+          "y": {
+            "title": {
+              "visible": true
+            },
+            "scale": "linear",
+            "ticks": {
+              "visible": true
+            },
+            "grid": {
+              "visible": true
+            },
+            "domain": {
+              "type": "full",
+              "rounding": true
+            },
+            "labels": {
+              "orientation": "horizontal"
+            }
+          }
+        },
+        "styling": {
+          "overlays": {
+            "partial_buckets": {
+              "visible": false
+            },
+            "current_time_marker": {
+              "visible": false
+            }
+          },
+          "bars": {
+            "minimum_height": 1,
+            "data_labels": {
+              "visible": false
+            }
+          }
+        },
+        "legend": {
+          "placement": "outside",
+          "position": "right",
+          "layout": {
+            "type": "grid",
+            "truncate": {
+              "max_lines": 1
+            }
+          },
+          "visibility": "visible"
+        }
+      },
+      "id": "ca18fda5-f2c1-436e-81fb-7c272a50ba0e",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 44,
+        "x": 0,
+        "w": 24,
+        "h": 15
+      },
+      "config": {
+        "type": "data_table",
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "logs-*"
+        },
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "count",
+            "empty_as_null": true,
+            "label": "# Requests",
+            "filter": {
+              "expression": "attributes.gen_ai.evaluation.passed : false ",
+              "language": "kql"
+            }
+          }
+        ],
+        "rows": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.evaluation.classification"
+            ],
+            "label": "Top Evaluation Classifications",
+            "limit": 9,
+            "excludes": {
+              "as_regex": false,
+              "values": [
+                "none"
+              ]
+            },
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            }
+          },
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.evaluation.name"
+            ],
+            "limit": 9,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            }
+          },
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.gen_ai.evaluation.explanation"
+            ],
+            "label": "Top Explanations",
+            "limit": 9,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            }
+          }
+        ]
+      },
+      "id": "9e0957a4-6d84-4977-a386-2319a54ccb15",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 44,
+        "x": 24,
+        "w": 24,
+        "h": 15
+      },
+      "config": {
+        "type": "data_table",
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "apm_static_data_view_id_default"
+        },
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "metrics": [
+          {
+            "operation": "average",
+            "field": "attributes.guard.score",
+            "label": "Average Score"
+          }
+        ],
+        "rows": [
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.guard.name"
+            ],
+            "label": "Guard",
+            "limit": 10,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            }
+          },
+          {
+            "operation": "terms",
+            "fields": [
+              "attributes.guard.action"
+            ],
+            "label": "Explanation",
+            "limit": 3,
+            "other_bucket": {
+              "include_documents_without_field": false
+            },
+            "rank_by": {
+              "type": "metric",
+              "metric_index": 0,
+              "direction": "desc"
+            }
+          }
+        ]
+      },
+      "id": "28eca42c-3c3a-43f2-9212-7326dd01bd5f",
+      "type": "vis"
+    },
+    {
+      "grid": {
+        "y": 30,
+        "x": 0,
+        "w": 48,
+        "h": 14
+      },
+      "config": {
+        "title": "Evaluation Failure Density",
+        "sampling": 1,
+        "ignore_global_filters": false,
+        "type": "heatmap",
+        "legend": {
+          "visibility": "visible",
+          "position": "right"
+        },
+        "axis": {
+          "x": {
+            "labels": {
+              "visible": true
+            },
+            "title": {
+              "visible": false
+            },
+            "scale": "ordinal"
+          }
+        },
+        "styling": {
+          "cells": {
+            "labels": {
+              "visible": false
+            }
+          }
+        },
+        "data_source": {
+          "type": "data_view_reference",
+          "ref_id": "logs-*"
+        },
+        "metric": {
+          "operation": "count",
+          "empty_as_null": true,
+          "filter": {
+            "expression": "attributes.gen_ai.evaluation.passed : false ",
+            "language": "kql"
+          },
+          "color": {
+            "type": "distributed_palette",
+            "palette": "complementary"
+          }
+        },
+        "x": {
+          "operation": "terms",
+          "fields": [
+            "attributes.gen_ai.evaluation.classification"
+          ],
+          "label": "Top Failing Evaluation Classifications",
+          "limit": 9,
+          "other_bucket": {
+            "include_documents_without_field": false
+          },
+          "rank_by": {
+            "type": "metric",
+            "metric_index": 0,
+            "direction": "desc"
+          }
+        }
+      },
+      "id": "c70ca5b1-88a1-493e-96fa-f7d19d3a0d39",
+      "type": "vis"
+    }
+  ],
+  "pinned_panels": []
+}
