@@ -42,6 +42,12 @@ openlit.init({
   openlitUrl: process.env.OPENLIT_URL,
   openlitApiKey: process.env.OPENLIT_API_KEY,
   disableBatch: true,
+  customSpanAttributes: {
+    "gen_ai.agent.name": "ai-travel-agent",
+    "gen_ai.agent.version": "0.1.0",
+    "service.version": "0.1.0",
+    "deployment.environment": "development"
+  },
 });
 
 // Register @ai-sdk/otel after openlit.init so it picks up the tracer provider
