@@ -77,7 +77,7 @@ export async function getSimilarMessages(content: string): Promise<(ModelMessage
         },
       },
       sort: [{ "@timestamp": "asc" }],
-      size: 20,
+      size: 3,
     });
 
     return result.hits.hits
