@@ -181,8 +181,8 @@ export default function Chat() {
         )
       }
       {
-        /* Guardrail denial: a deliberate refusal — no Retry since resending the
-           same prompt is guaranteed to be denied again by the same guard. */
+        /* Guardrail denial message
+           No Retry since resending the same prompt will be denied again */
         chatError?.code === "guardrail_denied" && (
           <div className="guardrail__container">
             <p className="guardrail__message">{chatError.message}</p>
@@ -193,17 +193,14 @@ export default function Chat() {
         )
       }
       {
-        /* Genuine failure: show the message from the API and offer a Retry.
-           regenerate() re-fires the last user message without duplicating it in
-           the transcript (sendMessage would push a second copy). */
+        // Genuine failure
         chatError && chatError.code !== "guardrail_denied" && (
           <>
             <div className="error__container">{chatError.message}</div>
             <button
               id="retry__button"
               type="button"
-              onClick={() => regenerate()}
-            >
+              onClick={() => regenerate()}>
               Retry
             </button>
           </>
@@ -212,8 +209,7 @@ export default function Chat() {
       <form
         onSubmit={(event) => {
           sendUserChat(event);
-        }}
-      >
+        }} >
         <input
           className="search-box__input"
           value={input}

@@ -44,15 +44,13 @@ openlit.init({
 });
 
 // Register @ai-sdk/otel after openlit.init so it picks up the tracer provider
-// OpenLit registers. Without this, AI SDK 7 emits no spans.
+// OpenLIT registers. Without this, AI SDK 7 emits no spans.
 registerTelemetry(new OpenTelemetry());
 
-// Resolve the tracer after openlit.init(): before a provider is registered the
-// global API returns a NoopTracer that never upgrades itself later.
+// Resolve the tracer after openlit.init(): before a provider is registered
 const tracer = trace.getTracer("ai-travel-agent");
 
-// Guard pipeline: local, offline content safety checks — no external dependencies.
-// Moderation catches profanity/toxicity; SensitiveTopic catches violence, explicit content, etc.
+// Create guardPipeline to evaluate user input and LLM output for guardrail violations
 const guardPipeline = new Pipeline({
   guards: [
     new Moderation(),
@@ -60,9 +58,7 @@ const guardPipeline = new Pipeline({
     new PromptInjection(),
     new PII(),
     new TopicRestriction({
-      // classifier is required: maps the input text to a single topic string,
-      // which is then checked against the allowed list. Keyword-based so it
-      // works offline with no external dependencies — sufficient for the demo.
+      // classifier maps the input text to a single topic string, which is then checked against the allowed list
       classifier: (text: string) => {
         const t = text.toLowerCase();
         if (/\b(flight|airline|airport|depart|arriv|trip)\b/.test(t)) return "flights";
@@ -74,8 +70,8 @@ const guardPipeline = new Pipeline({
         if (/\b(cod|program|AI|comput|bug|feature)\b/.test(t)) return "computing";
         return "general";
       },
-      // allowed-list approach: anything not classified as a travel topic is denied.
-      // Cannot set both allowed and denied — TopicRestriction throws at construction.
+      // allowed-list approach: anything not classified as a travel topic is denied
+      // Cannot set both allowed and denied — TopicRestriction throws at construction
       allowed: ["travel", "flights", "weather", "itinerary"]
     }),
   ]
@@ -129,15 +125,13 @@ export async function POST(req: Request) {
       Reuse and adapt past itineraries for the same destination if one exists in your memory.
       If the FCDO tool warns against travel DO NOT generate recommendations of things to do, and explain why.`;
 
-    // Preflight guards: run on the user's input before the LLM is called.
-    // TopicRestriction and PromptInjection only support PREFLIGHT, so they
-    // must be evaluated here — they are silently skipped in the postflight call.
+    // Preflight guards: run on the user's input before the LLM is called
+    // TopicRestriction and PromptInjection only support PREFLIGHT, so they must be evaluated here
     const preflightResult = context.with(
       trace.setSpan(context.active(), chatSpan),
       () => guardPipeline.evaluate(messageContent, "preflight")
     );
-    // PipelineResult.explanation is a prototype getter — JSON.stringify drops it.
-    // Log an explicit object so the explanation actually appears in the console.
+
     console.log(`Preflight guardrail results:`, {
       action: preflightResult.action,
       explanation: preflightResult.explanation,
@@ -145,16 +139,13 @@ export async function POST(req: Request) {
     });
 
     if (preflightResult.action === GuardAction.DENY) {
-      // Pipeline.evaluate breaks on the first DENY, so the guard that fired is
-      // the last entry in results. PipelineResult has no top-level guard field.
+      // Pipeline.evaluate breaks on the first DENY, so the guard that fired is the last entry in results
       const denyingGuard =
         preflightResult.results[preflightResult.results.length - 1];
       chatSpan.setStatus({ code: SpanStatusCode.ERROR, message: `preflight denied: ${preflightResult.explanation}` });
       chatSpan.end();
       chatSpanEnded = true;
-      // 400 keeps the refusal visible as a client error in traces.
-      // The JSON body lets the UI distinguish a deliberate refusal from a
-      // genuine failure: AI SDK surfaces the raw body as error.message.
+      // 400 keeps the refusal visible as a client error in traces
       return NextResponse.json(
         {
           code: "guardrail_denied",
@@ -168,14 +159,13 @@ export async function POST(req: Request) {
       );
     }
 
-    // context.with ensures @ai-sdk/otel parents ai.streamText under chatSpan.
+    // context.with ensures @ai-sdk/otel parents ai.streamText under chatSpan
     const result = context.with(chatContext, () =>
       streamText({
         model: azure("gpt-4o"),
         instructions: prompt,
         messages: allMessages,
-        // Required: the observable-chat-messages index stores assistant responses
-        // from earlier runs; AI SDK 7 rejects system-role messages by default.
+        // AI SDK 7 rejects system-role messages by default
         allowSystemInMessages: true,
         stopWhen: isStepCount(2),
         tools,
@@ -183,7 +173,7 @@ export async function POST(req: Request) {
         onEnd: async ({ text, steps, finalStep }) => {
           // A child of chatContext guarantees a recording span exists in onEnd.
           // logScore and guardPipeline._emitOtel both silently emit nothing when
-          // no recording span is reachable.
+          // no recording span is reachable
           const evalSpan = tracer.startSpan(
             "evaluate travel-planner",
             undefined,
@@ -203,12 +193,7 @@ export async function POST(req: Request) {
             const finalMessage = { role: "assistant", content: text } as ModelMessage;
             await persistMessage(finalMessage, id);
 
-            // Evals: LLM-as-a-judge via the OpenLIT server. openlit.eval() is a
-            // plain HTTP POST — it emits no OTel telemetry of its own. Each score
-            // is bridged to Elastic below via logScore, which emits an OTLP log
-            // record (→ nginx → collector → otlp/elastic) and a span event.
-            // Only request enabled evaluator types — the server hard-rejects disabled
-            // ones and fails the entire request.
+            // Evals: LLM-as-a-judge via the OpenLIT server. openlit.eval() is a plain HTTP POST to the OpenLIT server
             const evalResult = await openlit.eval({
               prompt: prompt,
               response: text,
@@ -229,7 +214,7 @@ export async function POST(req: Request) {
             for (const evaluation of evalResult.evaluations) {
               // Passing span: explicitly bypasses trace.getActiveSpan(), which
               // is null here. The log record carries evalSpan's trace/span ids,
-              // correlating each score to the parent conversation in Elastic.
+              // correlating each score to the parent conversation
               openlit.logScore({
                 span: evalSpan,
                 name: evaluation.type,
@@ -237,14 +222,11 @@ export async function POST(req: Request) {
                 comment: evaluation.explanation,
                 idempotencyKey: `${evalSpan.spanContext().spanId}:${evaluation.type}`,
                 metadata: {
-                  // spec-defined: human-readable label for the score (classification
-                  // is more descriptive than the raw "yes"/"no" verdict).
+                  // human-readable label for the score
                   "gen_ai.evaluation.score.label": evaluation.classification,
                   // spec-defined: correlates the score to the model response.
                   ...(finalStep.response?.id ? { "gen_ai.response.id": finalStep.response.id } : {}),
-                  // OpenLIT extensions — verdict and classification have no
-                  // first-class semconv slot; metadata keys become OTel attribute
-                  // keys verbatim.
+                  // OpenLIT extensions verdict and classification have no first-class semconv slot
                   "gen_ai.evaluation.verdict": evaluation.verdict,
                   "gen_ai.evaluation.classification": evaluation.classification,
                   // verdict "yes" means the issue was detected (a failure).
@@ -255,8 +237,7 @@ export async function POST(req: Request) {
             }
             console.log(`Eval results: ${JSON.stringify(evalResult)}`);
 
-            // Guards: Pipeline._emitOtel reads trace.getActiveSpan(), so evalSpan
-            // must be the active span for guard.evaluation events to be recorded.
+            // Guards: evalSpan must be the active span for guard.evaluation events to be recorded.
             const guardResult = context.with(
               trace.setSpan(context.active(), evalSpan),
               () => guardPipeline.evaluate(text, "postflight")
@@ -270,7 +251,7 @@ export async function POST(req: Request) {
             );
           } finally {
             // Span events are dropped the moment a span stops recording, so
-            // evalSpan must stay open until all logScore calls complete.
+            // evalSpan must stay open until all logScore calls complete
             evalSpan.end();
             if (!chatSpanEnded) {
               chatSpan.end();
@@ -290,9 +271,8 @@ export async function POST(req: Request) {
 
     // Return data stream to allow the useChat hook to handle the results as they are streamed through for a better user experience
     return createUIMessageStreamResponse({ stream: toUIMessageStream(result) });
-    //return result.toUIMessageStreamResponse();
   } catch (e) {
-    // streamText setup threw before onEnd could fire — end chatSpan here.
+    // streamText setup threw before onEnd could fire, end chatSpan here.
     if (!chatSpanEnded) {
       chatSpan.recordException(e as Error);
       chatSpan.setStatus({ code: SpanStatusCode.ERROR });
@@ -300,9 +280,6 @@ export async function POST(req: Request) {
       chatSpanEnded = true;
     }
     console.error(e);
-    // Status 500 is required: the previous 200 made response.ok true, so the
-    // transport tried to parse this text as a UI message stream and surfaced an
-    // opaque parse error instead of this message.
     return NextResponse.json(
       { code: "internal_error", message: "Unable to generate a plan. Please try again later!" },
       { status: 500 }
