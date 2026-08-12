@@ -1,17 +1,10 @@
-import openlit, { Pipeline, SensitiveTopic, Moderation } from "openlit";
+import openlit, { Pipeline, Moderation, SensitiveTopic, PromptInjection, TopicRestriction, PII, GuardAction } from "openlit";
 import { OpenTelemetry } from "@ai-sdk/otel";
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 
 import { createAzure } from "@ai-sdk/azure";
-import {
-  streamText,
-  isStepCount,
-  convertToModelMessages,
-  ModelMessage,
-  registerTelemetry,
-  createUIMessageStreamResponse,
-  toUIMessageStream,
-} from "ai";
+import { streamText, isStepCount, convertToModelMessages, ModelMessage,
+  registerTelemetry, createUIMessageStreamResponse, toUIMessageStream } from "ai";
 import { NextResponse } from "next/server";
 
 import { weatherTool } from "@/app/ai/weather.tool";
@@ -38,7 +31,7 @@ openlit.init({
   environment: "development",
   otlpEndpoint: process.env.PROXY_ENDPOINT,
   // OpenLIT server for LLM-as-a-judge evaluations (openlit.eval below).
-  // Must be the OpenLIT platform URL — NOT an LLM provider endpoint.
+  // Must be the OpenLIT platform URL and NOT an LLM provider endpoint.
   openlitUrl: process.env.OPENLIT_URL,
   openlitApiKey: process.env.OPENLIT_API_KEY,
   disableBatch: true,
@@ -64,6 +57,27 @@ const guardPipeline = new Pipeline({
   guards: [
     new Moderation(),
     new SensitiveTopic(),
+    new PromptInjection(),
+    new PII(),
+    new TopicRestriction({
+      // classifier is required: maps the input text to a single topic string,
+      // which is then checked against the allowed list. Keyword-based so it
+      // works offline with no external dependencies — sufficient for the demo.
+      classifier: (text: string) => {
+        const t = text.toLowerCase();
+        if (/\b(flight|airline|airport|depart|arriv|trip)\b/.test(t)) return "flights";
+        if (/\b(weather|forecast|temperature|rain|sun|wind|climate)\b/.test(t)) return "weather";
+        if (/\b(itinerar|sight|museum|hotel|restaurant|visit|tour)\b/.test(t)) return "itinerary";
+        if (/\b(travel|trip|tourism|holiday|vacation|destination|passport|visa)\b/.test(t)) return "travel";
+        if (/\b(politics|government|election|parliament)\b/.test(t)) return "politics";
+        if (/\b(financ|invest|stock|crypto|bank|tax|econom)\b/.test(t)) return "finance";
+        if (/\b(cod|program|AI|comput|bug|feature)\b/.test(t)) return "computing";
+        return "general";
+      },
+      // allowed-list approach: anything not classified as a travel topic is denied.
+      // Cannot set both allowed and denied — TopicRestriction throws at construction.
+      allowed: ["travel", "flights", "weather", "itinerary"]
+    }),
   ]
 });
 
@@ -115,6 +129,25 @@ export async function POST(req: Request) {
       Reuse and adapt past itineraries for the same destination if one exists in your memory.
       If the FCDO tool warns against travel DO NOT generate recommendations of things to do, and explain why.`;
 
+    // Preflight guards: run on the user's input before the LLM is called.
+    // TopicRestriction and PromptInjection only support PREFLIGHT, so they
+    // must be evaluated here — they are silently skipped in the postflight call.
+    const preflightResult = context.with(
+      trace.setSpan(context.active(), chatSpan),
+      () => guardPipeline.evaluate(messageContent, "preflight")
+    );
+    console.log(`Preflight guardrail results: ${JSON.stringify(preflightResult)}`);
+
+    if (preflightResult.action === GuardAction.DENY) {
+      chatSpan.setStatus({ code: SpanStatusCode.ERROR, message: `preflight denied: ${preflightResult.explanation}` });
+      chatSpan.end();
+      chatSpanEnded = true;
+      return new NextResponse(
+        "I'm sorry, I can only help with travel-related queries. Please ask me about flights, destinations, weather, or itineraries.",
+        { status: 400 }
+      );
+    }
+
     // context.with ensures @ai-sdk/otel parents ai.streamText under chatSpan.
     const result = context.with(chatContext, () =>
       streamText({
@@ -127,7 +160,7 @@ export async function POST(req: Request) {
         stopWhen: isStepCount(2),
         tools,
         telemetry: { functionId: "travel-planner" },
-        onEnd: async ({ text, steps, response }) => {
+        onEnd: async ({ text, steps, finalStep }) => {
           // A child of chatContext guarantees a recording span exists in onEnd.
           // logScore and guardPipeline._emitOtel both silently emit nothing when
           // no recording span is reachable.
@@ -188,7 +221,7 @@ export async function POST(req: Request) {
                   // is more descriptive than the raw "yes"/"no" verdict).
                   "gen_ai.evaluation.score.label": evaluation.classification,
                   // spec-defined: correlates the score to the model response.
-                  ...(response?.id ? { "gen_ai.response.id": response.id } : {}),
+                  ...(finalStep.response?.id ? { "gen_ai.response.id": finalStep.response.id } : {}),
                   // OpenLIT extensions — verdict and classification have no
                   // first-class semconv slot; metadata keys become OTel attribute
                   // keys verbatim.
