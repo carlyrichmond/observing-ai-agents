@@ -136,14 +136,34 @@ export async function POST(req: Request) {
       trace.setSpan(context.active(), chatSpan),
       () => guardPipeline.evaluate(messageContent, "preflight")
     );
-    console.log(`Preflight guardrail results: ${JSON.stringify(preflightResult)}`);
+    // PipelineResult.explanation is a prototype getter — JSON.stringify drops it.
+    // Log an explicit object so the explanation actually appears in the console.
+    console.log(`Preflight guardrail results:`, {
+      action: preflightResult.action,
+      explanation: preflightResult.explanation,
+      results: preflightResult.results,
+    });
 
     if (preflightResult.action === GuardAction.DENY) {
+      // Pipeline.evaluate breaks on the first DENY, so the guard that fired is
+      // the last entry in results. PipelineResult has no top-level guard field.
+      const denyingGuard =
+        preflightResult.results[preflightResult.results.length - 1];
       chatSpan.setStatus({ code: SpanStatusCode.ERROR, message: `preflight denied: ${preflightResult.explanation}` });
       chatSpan.end();
       chatSpanEnded = true;
-      return new NextResponse(
-        "I'm sorry, I can only help with travel-related queries. Please ask me about flights, destinations, weather, or itineraries.",
+      // 400 keeps the refusal visible as a client error in traces.
+      // The JSON body lets the UI distinguish a deliberate refusal from a
+      // genuine failure: AI SDK surfaces the raw body as error.message.
+      return NextResponse.json(
+        {
+          code: "guardrail_denied",
+          message:
+            "I'm sorry, I can only help with travel-related queries. Please ask me about flights, destinations, weather, or itineraries.",
+          explanation: preflightResult.explanation,
+          guard: denyingGuard?.guardName,
+          classification: denyingGuard?.classification,
+        },
         { status: 400 }
       );
     }
@@ -280,8 +300,12 @@ export async function POST(req: Request) {
       chatSpanEnded = true;
     }
     console.error(e);
-    return new NextResponse(
-      "Unable to generate a plan. Please try again later!"
+    // Status 500 is required: the previous 200 made response.ok true, so the
+    // transport tried to parse this text as a UI message stream and surfaced an
+    // opaque parse error instead of this message.
+    return NextResponse.json(
+      { code: "internal_error", message: "Unable to generate a plan. Please try again later!" },
+      { status: 500 }
     );
   }
 }

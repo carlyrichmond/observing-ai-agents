@@ -13,17 +13,20 @@ import { DefaultChatTransport } from "ai";
 import pin from "../../public/world-pin.svg";
 import { FCDOGuidance, FCDOGuidanceProps } from "./components/fcdo";
 import { FlightProps, Flights } from "./components/flight";
+import { parseChatError } from "./util/chat-error";
 
 export default function Chat() {
   const [input, setInput] = useState("");
-  const [lastRequest, setLastRequest] = useState("");
   /* useChat hook helps us handle the input, resulting messages, and also handle the loading and error states for a better user experience */
-  const { messages, sendMessage, status, stop, error } = useChat({
+  const { messages, sendMessage, regenerate, status, stop, error } = useChat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
   });
   const markdownConverter = new Converter();
+  /* Parses the raw error body returned by the API into a typed ChatError so the
+     UI can distinguish a deliberate guardrail denial from a genuine failure. */
+  const chatError = parseChatError(error);
 
   function sendUserChat(
     event: FormEvent<HTMLFormElement> | KeyboardEvent<HTMLInputElement>
@@ -33,7 +36,6 @@ export default function Chat() {
       sendMessage({
         parts: [{ type: "text", text: input }],
       });
-      setLastRequest(input);
       setInput("");
     }
   }
@@ -179,16 +181,28 @@ export default function Chat() {
         )
       }
       {
-        /* Show error message and return button when something goes wrong */
-        error && (
+        /* Guardrail denial: a deliberate refusal — no Retry since resending the
+           same prompt is guaranteed to be denied again by the same guard. */
+        chatError?.code === "guardrail_denied" && (
+          <div className="guardrail__container">
+            <p className="guardrail__message">{chatError.message}</p>
+            {chatError.explanation && (
+              <p className="guardrail__explanation">{chatError.explanation}</p>
+            )}
+          </div>
+        )
+      }
+      {
+        /* Genuine failure: show the message from the API and offer a Retry.
+           regenerate() re-fires the last user message without duplicating it in
+           the transcript (sendMessage would push a second copy). */
+        chatError && chatError.code !== "guardrail_denied" && (
           <>
-            <div className="error__container">
-              Unable to generate a plan. Please try again later!
-            </div>
+            <div className="error__container">{chatError.message}</div>
             <button
               id="retry__button"
               type="button"
-              onClick={() => sendMessage({ text: lastRequest })}
+              onClick={() => regenerate()}
             >
               Retry
             </button>
@@ -204,7 +218,7 @@ export default function Chat() {
           className="search-box__input"
           value={input}
           placeholder="Where would you like to go?"
-          disabled={status !== "ready"}
+          disabled={status === "submitted" || status === "streaming"}
           onChange={(event) => {
             setInput(event.target.value);
           }}

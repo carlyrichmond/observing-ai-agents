@@ -82,9 +82,9 @@ credit: https://codepen.io/ipetak/pen/BaBVaQB
 
 .spinner {
   position: relative;
-	border-top: 3px solid #F3D371;
+	border-top: 3px solid #FACB3D;
   border-bottom: 0;
-  border-left: 3px solid #F3D371;
+  border-left: 3px solid #FACB3D;
 	border-right: 3px solid transparent;
 	animation: rotate 1.5s linear infinite;
   height: 104px;
@@ -140,7 +140,43 @@ button {
   margin-top: 1rem;
 }
 
-/* Search Box */ 
+/* Guardrail denials and errors */
+
+.guardrail__container,
+.error__container {
+  max-width: 450px;
+  margin: 1.5rem auto 0 auto;
+  padding: 1rem;
+  border-radius: 6px;
+  text-align: center;
+  line-height: 1.4;
+  /* Explicit colour required: --foreground flips to #ededed in dark mode (globals.css:6-11)
+     and body inherits it, which would be near-invisible on these light backgrounds. */
+  color: #171717;
+}
+
+.guardrail__container {
+  background-color: #FACB3D;
+  border: 1px solid #d9b845;
+}
+
+.error__container {
+  background-color: #F86B63;
+  border: 1px solid #d4544d;
+}
+
+.guardrail__message {
+  font-weight: bold;
+}
+
+.guardrail__explanation {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+/* Search Box */
 
 .search-box__input {
   width: initial;
@@ -178,6 +214,8 @@ button {
   align-items: center;
 
   margin: 1rem;
+  /* Prevent the position:fixed footer from overlapping the last content */
+  padding-bottom: 3rem;
 }
 
 .chat__messages {

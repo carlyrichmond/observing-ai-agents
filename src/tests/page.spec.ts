@@ -18,9 +18,9 @@ test('get Paris itinerary from agent', async ({ page }) => {
 
     // Check that a response message from the agent is displayed
     const agentMessages = page.locator('.itinerary__div');
-    await expect(agentMessages).toHaveCount(3);
+    await expect(agentMessages).toHaveCount(2);
     await expect(agentMessages.nth(0)).toContainText(prompt);
-    await expect(agentMessages.nth(2)).toContainText('Paris', { timeout: 2400000 });
+    await expect(agentMessages.nth(1)).toContainText('Paris', { timeout: 2400000 });
 });
 
 test('get Berlin itinerary from agent', async ({ page }) => {
@@ -36,9 +36,9 @@ test('get Berlin itinerary from agent', async ({ page }) => {
 
     // Check that a response message from the agent is displayed
     const agentMessages = page.locator('.itinerary__div');
-    await expect(agentMessages).toHaveCount(3);
+    await expect(agentMessages).toHaveCount(2);
     await expect(agentMessages.nth(0)).toContainText(prompt);
-    await expect(agentMessages.nth(2)).toContainText('Berlin', { timeout: 2400000 });
+    await expect(agentMessages.nth(1)).toContainText('Berlin', { timeout: 2400000 });
 });
 
 test('get changing itinerary from agent', async ({ page }) => {
@@ -55,9 +55,9 @@ test('get changing itinerary from agent', async ({ page }) => {
 
     // Check that a response message from the agent is displayed
     const agentMessages = page.locator('.itinerary__div');
-    await expect(agentMessages).toHaveCount(3);
+    await expect(agentMessages).toHaveCount(2);
     await expect(agentMessages.nth(0)).toContainText(prompt);
-    await expect(agentMessages.nth(2)).toContainText('Berlin', { timeout: 2400000 });
+    await expect(agentMessages.nth(1)).toContainText('Berlin', { timeout: 2400000 });
 
     // Second question
     const anotherPrompt = 'Ok, what about if I want to spend 2 days in Berlin and 3 days in Munich. Can you recommend an itinerary>';
@@ -91,4 +91,31 @@ test('stop agent generation', async ({ page }) => {
     // Check that a response message from the agent is displayed
     const agentMessages = page.locator('.itinerary__div');
     await expect(agentMessages).toHaveCount(1);
+});
+
+test('deny non-travel queries with a guardrail banner', async ({ page }) => {
+    await page.goto('/');
+
+    const prompt = 'Tell me more about politics';
+    await page.fill('input[placeholder="Where would you like to go?"]', `${prompt}`);
+    await page.keyboard.press('Enter');
+
+    // Spinner is intentionally not awaited here
+    // The deny path returns in milliseconds and the spinner may unmount before Playwright polls it
+
+    // Guardrail banner must appear with the refusal and the guard explanation
+    const denial = page.locator('.guardrail__container');
+    await expect(denial).toBeVisible({ timeout: 30000 });
+    await expect(denial).toContainText('I can only help with travel-related queries');
+    await expect(denial).toContainText("Topic 'politics' is not in the allowed list");
+
+    // No Retry for a deliberate refusal
+    await expect(page.locator('#retry__button')).toHaveCount(0);
+
+    // The input must stay enabled so the user can ask a travel question next
+    await expect(page.locator('input[placeholder="Where would you like to go?"]')).toBeEnabled();
+
+    // The denied prompt stays in the message history but no itinerary was generated
+    await expect(page.locator('.itinerary__div')).toHaveCount(1);
+    await expect(page.locator('.itinerary__div').nth(0)).toContainText(prompt);
 });
