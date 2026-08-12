@@ -1,10 +1,10 @@
 # Demo Script
 
 ## Tracing
-Amsterdam to see the canals
+Trip to Amsterdam with flights to see the canals
 
 ## Evals
-Madrid to see the Brandenberg gate
+Plan me a trip to Madrid to see the Brandenberg gate
 
 ## Guardrails
 Tell me more about politics
