@@ -97,7 +97,8 @@ npm run dev
 
 ## OpenLIT one-time setup
 
-This is required for the evals demo beat. State is split across two Docker volumes:
+This is required for the evalulations demo. State is split across two Docker volumes:
+
 - **`infra_openlit-data`** — SQLite: login, API keys, eval config. Survives `docker compose down`.
 - **`infra_clickhouse-data`** — ClickHouse: Vault secret, provider catalog, eval results. Survives `docker compose down`.
 
