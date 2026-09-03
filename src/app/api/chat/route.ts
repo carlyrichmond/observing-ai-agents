@@ -30,8 +30,6 @@ openlit.init({
   applicationName: "ai-travel-agent",
   environment: "development",
   otlpEndpoint: process.env.PROXY_ENDPOINT,
-  // OpenLIT server for LLM-as-a-judge evaluations (openlit.eval below).
-  // Must be the OpenLIT platform URL and NOT an LLM provider endpoint.
   openlitUrl: process.env.OPENLIT_URL,
   openlitApiKey: process.env.OPENLIT_API_KEY,
   disableBatch: true,
@@ -91,11 +89,7 @@ export async function POST(req: Request) {
 
   const previousMessages = await getSimilarMessages(messageContent);
 
-  // onEnd fires from the stream's flush callback in a new async context with no
-  // active span — nothing set here propagates there implicitly. Owning the parent
-  // span and closing over its Context is what correlates eval/guard telemetry with
-  // the LLM spans: @ai-sdk/otel parents ai.streamText off context.active() at the
-  // streamText() call site, and never makes any of its own spans active.
+  // Custom span to send evaluations to Elasticsearch
   const chatSpan = tracer.startSpan("chat travel-planner", {
     kind: SpanKind.SERVER,
     attributes: { "gen_ai.conversation.id": id },
@@ -212,9 +206,6 @@ export async function POST(req: Request) {
             }
 
             for (const evaluation of evalResult.evaluations) {
-              // Passing span: explicitly bypasses trace.getActiveSpan(), which
-              // is null here. The log record carries evalSpan's trace/span ids,
-              // correlating each score to the parent conversation
               openlit.logScore({
                 span: evalSpan,
                 name: evaluation.type,
